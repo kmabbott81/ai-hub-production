@@ -1,0 +1,47 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# API Keys and secrets
+**/api_keys/
+**/secrets/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+session_logs/
+
+# Claude Code settings
+.claude/settings.local.json
+
+# Large archive files
+*.zip
+archive*/
+2025.*/
+
+# Node modules
+node_modules/
+
+# Streamlit secrets
+.streamlit/secrets.toml
