@@ -68,7 +68,10 @@ debug_info = {
     'perplexity_key_exists': bool(perplexity_key),
     'openai_lib': OPENAI_AVAILABLE,
     'anthropic_lib': ANTHROPIC_AVAILABLE,
-    'requests_lib': REQUESTS_AVAILABLE
+    'requests_lib': REQUESTS_AVAILABLE,
+    'env_vars_present': [key for key in os.environ.keys() if 'API' in key.upper()],
+    'port_var': os.getenv('PORT', 'not set'),
+    'python_unbuffered': os.getenv('PYTHONUNBUFFERED', 'not set')
 }
 
 # Simple authentication
