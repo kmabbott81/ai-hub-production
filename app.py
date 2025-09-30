@@ -8,6 +8,11 @@ import os
 import asyncio
 import time
 from datetime import datetime
+from pathlib import Path
+import tempfile
+import shutil
+from typing import List, Dict, Optional
+import mimetypes
 
 # Page config
 st.set_page_config(
@@ -111,6 +116,16 @@ if 'current_thread_id' not in st.session_state:
     st.session_state.current_thread_id = None
 if 'thread_counter' not in st.session_state:
     st.session_state.thread_counter = 0
+if 'projects' not in st.session_state:
+    st.session_state.projects = []
+if 'current_project_id' not in st.session_state:
+    st.session_state.current_project_id = None
+if 'project_counter' not in st.session_state:
+    st.session_state.project_counter = 0
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = {}
+if 'show_project_modal' not in st.session_state:
+    st.session_state.show_project_modal = False
 
 # Query type detection and specialized prompts
 def detect_query_type(query: str) -> str:
@@ -811,12 +826,228 @@ def update_thread_title(thread_id, first_message):
             thread['title'] = first_message[:50] + ('...' if len(first_message) > 50 else '')
             break
 
+# Helper functions for projects
+def create_new_project(name: str, description: str = ""):
+    """Create a new project workspace"""
+    st.session_state.project_counter += 1
+    project_id = f"project_{st.session_state.project_counter}"
+    project = {
+        'id': project_id,
+        'name': name,
+        'description': description,
+        'files': [],
+        'threads': [],
+        'created_at': datetime.now(),
+        'folder_path': None
+    }
+    st.session_state.projects.append(project)
+    st.session_state.current_project_id = project_id
+    return project_id
+
+def get_current_project():
+    """Get the current active project"""
+    if not st.session_state.current_project_id:
+        return None
+    for project in st.session_state.projects:
+        if project['id'] == st.session_state.current_project_id:
+            return project
+    return None
+
+def switch_project(project_id: Optional[str]):
+    """Switch to a different project or none"""
+    st.session_state.current_project_id = project_id
+
+def add_file_to_project(project_id: str, file_info: Dict):
+    """Add a file to a project"""
+    for project in st.session_state.projects:
+        if project['id'] == project_id:
+            project['files'].append(file_info)
+            break
+
+def process_uploaded_file(uploaded_file):
+    """Process an uploaded file and extract text content"""
+    try:
+        file_type = uploaded_file.type
+        file_name = uploaded_file.name
+        file_size = uploaded_file.size
+
+        # Read content based on file type
+        content = ""
+        if file_type == "text/plain" or file_name.endswith('.txt'):
+            content = uploaded_file.read().decode('utf-8')
+        elif file_type == "text/markdown" or file_name.endswith('.md'):
+            content = uploaded_file.read().decode('utf-8')
+        elif file_type == "application/json" or file_name.endswith('.json'):
+            content = uploaded_file.read().decode('utf-8')
+        elif file_type == "text/csv" or file_name.endswith('.csv'):
+            content = uploaded_file.read().decode('utf-8')
+        elif file_name.endswith(('.py', '.js', '.java', '.cpp', '.c', '.html', '.css', '.xml')):
+            content = uploaded_file.read().decode('utf-8')
+        elif file_type == "application/pdf":
+            # For PDF, we'll note it requires special processing
+            content = "[PDF file - requires PDF processing library]"
+        else:
+            content = f"[Binary file: {file_type}]"
+
+        return {
+            'name': file_name,
+            'type': file_type,
+            'size': file_size,
+            'content': content,
+            'uploaded_at': datetime.now()
+        }
+    except Exception as e:
+        return {
+            'name': uploaded_file.name,
+            'type': uploaded_file.type,
+            'size': uploaded_file.size,
+            'content': f"[Error reading file: {str(e)}]",
+            'uploaded_at': datetime.now(),
+            'error': str(e)
+        }
+
+def get_project_context():
+    """Get context from current project files"""
+    project = get_current_project()
+    if not project or not project['files']:
+        return None
+
+    context = f"PROJECT: {project['name']}\n"
+    if project['description']:
+        context += f"Description: {project['description']}\n"
+    context += f"\nProject Files ({len(project['files'])} files):\n\n"
+
+    for file_info in project['files']:
+        context += f"--- {file_info['name']} ---\n"
+        # Limit content to prevent token overflow
+        content = file_info['content']
+        if len(content) > 5000:
+            content = content[:5000] + "\n... [truncated]"
+        context += f"{content}\n\n"
+
+    return context
+
+def scan_folder(folder_path: str, extensions: List[str] = None) -> List[Dict]:
+    """Scan a folder and read text files"""
+    if not extensions:
+        extensions = ['.txt', '.md', '.py', '.js', '.json', '.csv', '.html', '.css', '.xml', '.java', '.cpp', '.c']
+
+    files = []
+    try:
+        path = Path(folder_path)
+        if not path.exists() or not path.is_dir():
+            return []
+
+        for file_path in path.rglob('*'):
+            if file_path.is_file() and file_path.suffix in extensions:
+                try:
+                    # Skip large files (>1MB)
+                    if file_path.stat().st_size > 1024 * 1024:
+                        continue
+
+                    content = file_path.read_text(encoding='utf-8', errors='ignore')
+                    files.append({
+                        'name': file_path.name,
+                        'path': str(file_path),
+                        'type': mimetypes.guess_type(str(file_path))[0] or 'text/plain',
+                        'size': file_path.stat().st_size,
+                        'content': content,
+                        'uploaded_at': datetime.now()
+                    })
+                except Exception as e:
+                    continue
+
+    except Exception as e:
+        pass
+
+    return files
+
 # Initialize first thread if none exist
 if len(st.session_state.chat_threads) == 0:
     create_new_thread()
 
-# Sidebar - Chat history
+# Sidebar - Projects and Chat history
 with st.sidebar:
+    # Project selector
+    current_project = get_current_project()
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        project_options = ["No project"] + [p['name'] for p in st.session_state.projects]
+        current_project_name = current_project['name'] if current_project else "No project"
+        selected_project = st.selectbox(
+            "Project",
+            project_options,
+            index=project_options.index(current_project_name),
+            label_visibility="collapsed",
+            key="project_selector"
+        )
+    with col2:
+        if st.button("⊕", key="new_project_btn", help="New project"):
+            st.session_state.show_project_modal = True
+            st.rerun()
+
+    # Handle project selection
+    if selected_project != current_project_name:
+        if selected_project == "No project":
+            switch_project(None)
+        else:
+            for project in st.session_state.projects:
+                if project['name'] == selected_project:
+                    switch_project(project['id'])
+                    break
+        st.rerun()
+
+    # Show project files if project selected
+    if current_project and current_project['files']:
+        with st.expander(f"📁 Files ({len(current_project['files'])})", expanded=False):
+            for file_info in current_project['files']:
+                size_kb = file_info['size'] / 1024
+                st.caption(f"{file_info['name']} ({size_kb:.1f}KB)")
+
+    st.markdown("")
+
+    # File upload and folder linking for current project
+    if current_project:
+        # File upload
+        uploaded_files = st.file_uploader(
+            "Upload files",
+            accept_multiple_files=True,
+            label_visibility="collapsed",
+            key="file_uploader"
+        )
+
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+                # Check if file already exists
+                existing_file = any(f['name'] == uploaded_file.name for f in current_project['files'])
+                if not existing_file:
+                    file_info = process_uploaded_file(uploaded_file)
+                    add_file_to_project(current_project['id'], file_info)
+            st.rerun()
+
+        # Folder linking
+        with st.expander("🔗 Link folder", expanded=False):
+            folder_path = st.text_input("Folder path", placeholder="C:/path/to/folder", key="folder_path_input")
+            if st.button("Scan folder", key="scan_folder_btn"):
+                if folder_path:
+                    scanned_files = scan_folder(folder_path)
+                    if scanned_files:
+                        for file_info in scanned_files:
+                            # Check if file already exists
+                            existing = any(f.get('path') == file_info['path'] for f in current_project['files'])
+                            if not existing:
+                                add_file_to_project(current_project['id'], file_info)
+                        current_project['folder_path'] = folder_path
+                        st.success(f"Added {len(scanned_files)} files from folder")
+                        st.rerun()
+                    else:
+                        st.error("No files found or invalid path")
+                else:
+                    st.error("Please enter a folder path")
+
+    st.markdown("---")
+
     # New chat button
     if st.button("+ New chat", use_container_width=True, type="primary"):
         create_new_thread()
@@ -846,6 +1077,28 @@ with st.sidebar:
         available_count = len([k for k, v in api_status.items() if v and k not in ['notion', 'gemini']])
         st.caption(f"⬡ AI Hub · {available_count} agents")
 
+
+# Project creation modal
+if st.session_state.show_project_modal:
+    with st.container():
+        st.markdown("### Create New Project")
+        project_name = st.text_input("Project name", placeholder="My Project", key="new_project_name")
+        project_desc = st.text_area("Description (optional)", placeholder="What is this project about?", height=80, key="new_project_desc")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Create", type="primary", use_container_width=True):
+                if project_name:
+                    create_new_project(project_name, project_desc)
+                    st.session_state.show_project_modal = False
+                    st.rerun()
+                else:
+                    st.error("Project name is required")
+        with col2:
+            if st.button("Cancel", use_container_width=True):
+                st.session_state.show_project_modal = False
+                st.rerun()
+        st.markdown("---")
 
 # Main Chat Interface
 # Display messages
@@ -887,8 +1140,16 @@ if submit and user_input:
     # Show processing indicator
     with st.spinner("Thinking..."):
         try:
+            # Get project context if available
+            project_context = get_project_context()
+
+            # Enhance query with project context
+            enhanced_query = user_input
+            if project_context:
+                enhanced_query = f"{project_context}\n\nUSER QUERY: {user_input}\n\nPlease answer considering the project files above."
+
             # Use real multi-agent collaboration
-            result = asyncio.run(real_multi_agent_collaboration(user_input, "production"))
+            result = asyncio.run(real_multi_agent_collaboration(enhanced_query, "production"))
 
             if result['success']:
                 # Add collaboration response
