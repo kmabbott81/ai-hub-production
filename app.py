@@ -158,12 +158,17 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
         except Exception as e:
             responses.append(f"**Creative Agent:** Innovative insight generation active")
 
-    # Combine responses
+    # Combine responses with better formatting
     if responses:
-        final_response = f"**Multi-Agent Collaborative Analysis**\n\n" + "\n\n".join(responses)
-        final_response += f"\n\n**Synthesis:** This comprehensive response demonstrates the power of multi-agent collaboration, combining research, analysis, and creative perspectives to deliver insights superior to any individual AI platform."
+        # Create cleaner, more readable response sections
+        sections = []
+        for response in responses:
+            sections.append(f"{response}\n\n---\n")
+
+        final_response = "\n".join(sections)
+        final_response += "\n\n### 🎯 Summary\n\nThis analysis combines multiple AI perspectives to provide comprehensive insights from different angles: research data, analytical reasoning, and creative problem-solving."
     else:
-        final_response = f"**Enhanced AI Analysis of: '{query}'**\n\nOur multi-agent system provides superior analysis by combining multiple AI perspectives. This approach has consistently ranked #1 against individual platforms like ChatGPT, Claude, Gemini, and Perplexity in independent testing.\n\n**Multi-Perspective Approach:**\n• Research-backed insights with real-time data\n• Deep analytical reasoning and pattern recognition\n• Creative problem-solving and alternative viewpoints\n• Meta-reasoning synthesis for superior results\n\n**Quality Assurance:** This response leverages our proven collaboration framework that outperformed individual AI platforms with a 95/100 score vs 88/100 for ChatGPT."
+        final_response = f"### Analysis: {query}\n\nProviding enhanced analysis through multi-agent collaboration.\n\n**Approach:**\n- Research-backed insights\n- Analytical reasoning\n- Creative perspectives\n- Synthesized conclusions"
 
     processing_time = time.time() - start_time
 
@@ -231,11 +236,13 @@ st.markdown("""
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 18px 18px 18px 4px;
-        padding: 1.5rem;
-        margin: 1rem auto 1rem 0;
+        padding: 2rem;
+        margin: 1.5rem auto 1.5rem 0;
         max-width: 90%;
         box-shadow: 0 4px 16px rgba(0,0,0,0.08);
         position: relative;
+        line-height: 1.8;
+        font-size: 1.05rem;
     }
 
     .ai-response::before {
@@ -248,6 +255,28 @@ st.markdown("""
         font-size: 18px;
         border-radius: 10px;
         border: 1px solid #e5e7eb;
+    }
+
+    .ai-response h3 {
+        color: #0066cc;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+    }
+
+    .ai-response hr {
+        margin: 2rem 0;
+        border: none;
+        border-top: 2px solid #e5e7eb;
+    }
+
+    .ai-response p {
+        margin-bottom: 1rem;
+    }
+
+    .ai-response strong {
+        color: #1f2937;
+        font-weight: 600;
     }
 
     .user-message {
@@ -296,8 +325,7 @@ st.markdown("""
 st.markdown("""
 <div class="header">
     <h1>🚀 AI Hub</h1>
-    <p>Real Multi-Agent AI Collaboration Platform</p>
-    <div class="performance-badge">Ranked #1 vs ChatGPT, Claude, Gemini, Perplexity</div>
+    <p>Multi-Agent AI Collaboration Platform</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -424,7 +452,7 @@ st.markdown("""
 <div style="text-align: center; color: #64748b; padding: 2rem; background: #f8fafc; border-radius: 12px; margin-top: 2rem;">
     🚀 <strong>AI Hub</strong> • Multi-Agent AI Collaboration Platform<br>
     <small style="color: #9ca3af; margin-top: 0.5rem; display: block;">
-        Proven superior results: Ranked #1 vs ChatGPT, Claude, Gemini, Perplexity • Real multi-agent collaboration
+        Combining multiple AI perspectives for comprehensive analysis
     </small>
 </div>
 """, unsafe_allow_html=True)
