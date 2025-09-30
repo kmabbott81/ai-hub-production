@@ -207,8 +207,8 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             return None
         try:
             genai.configure(api_key=get_api_key("gemini"))
-            # Use the latest stable model (Gemini 1.5 models are retired as of 2025)
-            model = genai.GenerativeModel('gemini-2.5-flash')  # Latest stable model
+            # Use Gemini 2.5 Pro for better reasoning and less safety blocking
+            model = genai.GenerativeModel('gemini-2.5-pro')  # Pro model for complex reasoning
 
             # Configure safety settings to be less restrictive
             safety_settings = [
@@ -238,9 +238,9 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
 
             return {
                 'agent': 'Gemini Synthesis Agent',
-                'model': 'gemini-2.5-flash',
+                'model': 'gemini-2.5-pro',
                 'response': f"**Practical Synthesis:** {response_text}",
-                'cost': 0.001  # Flash is cheaper
+                'cost': 0.002  # Pro model costs slightly more
             }
         except Exception as e:
             agent_errors.append(f"Gemini: {str(e)}")
