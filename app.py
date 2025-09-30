@@ -270,49 +270,8 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"OpenAI: {str(e)}")
         return None
 
-    def call_gemini_sync():
-        if not api_status.get('gemini'):
-            return None
-        try:
-            genai.configure(api_key=get_api_key("gemini"))
-            # Use Gemini 2.5 Pro for better reasoning and less safety blocking
-            model = genai.GenerativeModel('gemini-2.5-pro')  # Pro model for complex reasoning
-
-            # Configure safety settings to be less restrictive
-            safety_settings = [
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-            ]
-
-            response = model.generate_content(
-                f"Provide a synthesized perspective with practical applications for: {query}",
-                generation_config={'temperature': 0.5, 'max_output_tokens': 600},
-                safety_settings=safety_settings
-            )
-
-            # Check if response was blocked or empty
-            try:
-                response_text = response.text
-                if not response_text:
-                    agent_errors.append(f"Gemini: Empty response (finish_reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'})")
-                    return None
-            except ValueError as e:
-                # response.text raises ValueError if blocked
-                finish_reason = response.candidates[0].finish_reason if response.candidates else "unknown"
-                agent_errors.append(f"Gemini: Response blocked (finish_reason: {finish_reason}, safety ratings: {response.candidates[0].safety_ratings if response.candidates else 'none'})")
-                return None
-
-            return {
-                'agent': 'Gemini Synthesis Agent',
-                'model': 'gemini-2.5-pro',
-                'response': f"**Practical Synthesis:** {response_text}",
-                'cost': 0.002  # Pro model costs slightly more
-            }
-        except Exception as e:
-            agent_errors.append(f"Gemini: {str(e)}")
-        return None
+    # Gemini agent removed - consistently blocked by safety filters
+    # Claude synthesis provides comprehensive synthesis without Gemini issues
 
     # SEQUENTIAL REASONING CHAIN for exponentially better quality
     # Each agent builds upon the previous agent's output
@@ -477,7 +436,7 @@ Provide:
             final_response += f"{point}\n"
 
         final_response += f"\n**Query Type Detected:** `{query_type}`\n"
-        final_response += f"**Analysis Confidence:** {95 if len(responses) >= 3 else 88 if len(responses) >= 2 else 75}%\n"
+        final_response += f"**Analysis Confidence:** {98 if len(responses) >= 4 else 95 if len(responses) >= 3 else 88 if len(responses) >= 2 else 75}%\n"
         final_response += "\n---\n\n## 🔍 Detailed Analysis\n\n"
 
         # Create cleaner, more readable response sections
@@ -515,9 +474,9 @@ Provide:
             'models_used': models_used or ['Multi-Model Synthesis'],
             'processing_time': processing_time,
             'total_cost': total_cost,
-            'confidence': 0.95 if len(responses) >= 3 else (0.88 if len(responses) >= 2 else 0.75),
+            'confidence': 0.98 if len(responses) >= 4 else (0.95 if len(responses) >= 3 else (0.88 if len(responses) >= 2 else 0.75)),
             'consensus_method': 'real_multi_agent' if responses else 'enhanced_fallback',
-            'agents_available': len([k for k, v in api_status.items() if v and k != 'notion']),
+            'agents_available': len([k for k, v in api_status.items() if v and k not in ['notion', 'gemini']]),
             'agents_successful': len(agents_used),
             'errors': agent_errors if agent_errors else None
         }
