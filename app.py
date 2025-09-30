@@ -167,13 +167,13 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
 
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-3-5-sonnet-20240620",  # Stable June 2024 release
+                model="claude-sonnet-4-5-20250929",  # Latest Claude Sonnet 4.5 (Sept 2025)
                 max_tokens=600,  # Reduced for speed
                 messages=[{"role": "user", "content": f"Provide deep analysis and insights for: {query}"}]
             )
             return {
                 'agent': 'Claude Analysis Agent',
-                'model': 'claude-3.5-sonnet',
+                'model': 'claude-sonnet-4.5',
                 'response': f"**Deep Analysis:** {response.content[0].text}",
                 'cost': 0.003
             }
@@ -224,15 +224,22 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
                 safety_settings=safety_settings
             )
 
-            # Check if response was blocked
-            if not response.text:
-                agent_errors.append(f"Gemini: Response blocked by safety filters (finish_reason: {response.candidates[0].finish_reason})")
+            # Check if response was blocked or empty
+            try:
+                response_text = response.text
+                if not response_text:
+                    agent_errors.append(f"Gemini: Empty response (finish_reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'})")
+                    return None
+            except ValueError as e:
+                # response.text raises ValueError if blocked
+                finish_reason = response.candidates[0].finish_reason if response.candidates else "unknown"
+                agent_errors.append(f"Gemini: Response blocked (finish_reason: {finish_reason}, safety ratings: {response.candidates[0].safety_ratings if response.candidates else 'none'})")
                 return None
 
             return {
                 'agent': 'Gemini Synthesis Agent',
                 'model': 'gemini-2.5-flash',
-                'response': f"**Practical Synthesis:** {response.text}",
+                'response': f"**Practical Synthesis:** {response_text}",
                 'cost': 0.001  # Flash is cheaper
             }
         except Exception as e:
