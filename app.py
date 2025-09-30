@@ -137,7 +137,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=15  # Reduced timeout
+                timeout=30  # Increased timeout for research queries
             )
             if response.status_code == 200:
                 data = response.json()
@@ -157,7 +157,12 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
         try:
             api_key = get_api_key("anthropic")
             if not api_key:
-                agent_errors.append("Claude: No API key found")
+                agent_errors.append("Claude: No API key found in environment")
+                return None
+
+            # Debug: Check if API key looks valid (starts with sk-)
+            if not api_key.startswith('sk-'):
+                agent_errors.append(f"Claude: API key format invalid (should start with 'sk-', got '{api_key[:5]}...')")
                 return None
 
             client = anthropic.Anthropic(api_key=api_key)
@@ -202,15 +207,15 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             return None
         try:
             genai.configure(api_key=get_api_key("gemini"))
-            # Use the latest stable model
-            model = genai.GenerativeModel('gemini-1.5-flash')  # Faster model, or use 'gemini-1.5-pro'
+            # Use the latest stable model (Gemini 1.5 models are retired as of 2025)
+            model = genai.GenerativeModel('gemini-2.5-flash')  # Latest stable model
             response = model.generate_content(
                 f"Provide a synthesized perspective with practical applications for: {query}",
                 generation_config={'temperature': 0.5, 'max_output_tokens': 600}  # Reduced for speed
             )
             return {
                 'agent': 'Gemini Synthesis Agent',
-                'model': 'gemini-1.5-flash',
+                'model': 'gemini-2.5-flash',
                 'response': f"**Practical Synthesis:** {response.text}",
                 'cost': 0.001  # Flash is cheaper
             }
