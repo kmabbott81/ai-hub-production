@@ -167,7 +167,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
 
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-3-5-sonnet-20241022",  # Updated to latest model
+                model="claude-3-5-sonnet-20240620",  # Stable June 2024 release
                 max_tokens=600,  # Reduced for speed
                 messages=[{"role": "user", "content": f"Provide deep analysis and insights for: {query}"}]
             )
@@ -209,10 +209,26 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             genai.configure(api_key=get_api_key("gemini"))
             # Use the latest stable model (Gemini 1.5 models are retired as of 2025)
             model = genai.GenerativeModel('gemini-2.5-flash')  # Latest stable model
+
+            # Configure safety settings to be less restrictive
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ]
+
             response = model.generate_content(
                 f"Provide a synthesized perspective with practical applications for: {query}",
-                generation_config={'temperature': 0.5, 'max_output_tokens': 600}  # Reduced for speed
+                generation_config={'temperature': 0.5, 'max_output_tokens': 600},
+                safety_settings=safety_settings
             )
+
+            # Check if response was blocked
+            if not response.text:
+                agent_errors.append(f"Gemini: Response blocked by safety filters (finish_reason: {response.candidates[0].finish_reason})")
+                return None
+
             return {
                 'agent': 'Gemini Synthesis Agent',
                 'model': 'gemini-2.5-flash',
