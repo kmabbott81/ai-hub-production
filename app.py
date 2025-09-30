@@ -67,6 +67,8 @@ if 'username' not in st.session_state:
     st.session_state.username = None
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+if 'show_login' not in st.session_state:
+    st.session_state.show_login = False
 
 # Real multi-agent collaboration function
 async def real_multi_agent_collaboration(query: str, mode: str = "production"):
@@ -407,6 +409,61 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover {
         background: linear-gradient(135deg, #94a3b8, #64748b);
     }
+
+    /* Floating Login Button */
+    .floating-login-btn {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 50px;
+        box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 1000;
+        border: none;
+    }
+
+    .floating-login-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 32px rgba(99, 102, 241, 0.5);
+    }
+
+    /* Login Modal */
+    .login-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2000;
+        max-width: 440px;
+        width: 90%;
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        padding: 3rem;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translate(-50%, -40%); }
+        to { opacity: 1; transform: translate(-50%, -50%); }
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 1999;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -433,107 +490,117 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-# Authentication
-if not st.session_state.authenticated:
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    st.markdown("### 🔐 Access AI Hub")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        username = st.text_input("Username", placeholder="demo, admin, or kyle")
-        password = st.text_input("Password", type="password", placeholder="Enter password")
-
-        if st.button("🚀 Login", type="primary", use_container_width=True):
-            if username in USERS and USERS[username] == password:
-                st.session_state.authenticated = True
-                st.session_state.username = username
-                st.success(f"Welcome {username}!")
-                st.rerun()
-            else:
-                st.error("Invalid credentials")
-
-    with col2:
-        st.markdown("**Demo Accounts:**")
-        st.code("demo / demo123\nadmin / admin123\nkyle / kyle123")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-else:
-    # Main AI Chat Interface
-    st.markdown("## 🤖 Multi-Agent AI Collaboration")
-
-    # Logout in sidebar
-    with st.sidebar:
-        st.markdown(f"### 👋 Welcome {st.session_state.username}!")
-        if st.button("🚪 Logout"):
+# Sidebar - Optional Login
+with st.sidebar:
+    if st.session_state.authenticated:
+        st.markdown(f"### 👋 {st.session_state.username}")
+        if st.button("🚪 Logout", use_container_width=True):
             st.session_state.authenticated = False
             st.session_state.username = None
             st.rerun()
+    else:
+        st.markdown("### 🔐 Login (Optional)")
+        if st.button("👤 Login", use_container_width=True):
+            st.session_state.show_login = True
+            st.rerun()
 
-    # Display messages
-    for msg in st.session_state.messages:
-        if msg['role'] == 'user':
-            st.markdown(f'<div class="user-message">{msg["content"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="ai-response">{msg["content"]}</div>', unsafe_allow_html=True)
+# Login Modal (only if show_login is True)
+if st.session_state.show_login and not st.session_state.authenticated:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-modal">', unsafe_allow_html=True)
+        st.markdown("### 🔐 Login to AI Hub")
 
-    # Chat input
-    with st.form("chat_form", clear_on_submit=True):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            user_input = st.text_area("Ask AI anything:", height=100,
-                                    placeholder="Try: 'How do I make a paper airplane, the RIGHT way?' or 'Analyze the future of AI technology'")
-        with col2:
-            mode = st.selectbox("Mode", ["Production", "Research", "Fast"],
-                               help="Production: Full collaboration • Research: Research-focused • Fast: Quick response")
+        username = st.text_input("Username", placeholder="demo, admin, or kyle", key="login_username")
+        password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
 
-        if st.form_submit_button("🚀 Start Multi-Agent Collaboration", type="primary"):
-            if user_input:
-                # Add user message
-                st.session_state.messages.append({
-                    'role': 'user',
-                    'content': user_input
-                })
-
-                # Show processing indicator
-                with st.spinner("🧠 Multi-agent collaboration in progress... Consulting multiple AI systems..."):
-                    try:
-                        # Use real multi-agent collaboration
-                        result = asyncio.run(real_multi_agent_collaboration(user_input, mode.lower()))
-
-                        if result['success']:
-                            # Add collaboration response
-                            response_content = result['response']
-                            details = result['collaboration_details']
-
-                            if details:
-                                response_content += f"\n\n**🔍 Collaboration Details:**\n"
-                                response_content += f"• **Agents Used:** {', '.join(details.get('agents_used', []))}\n"
-                                response_content += f"• **Models:** {', '.join(details.get('models_used', []))}\n"
-                                response_content += f"• **Processing Time:** {details.get('processing_time', 0):.2f}s\n"
-                                response_content += f"• **Total Cost:** ${details.get('total_cost', 0):.4f}\n"
-                                response_content += f"• **Confidence:** {details.get('confidence', 0.8):.1%}"
-
-                            st.session_state.messages.append({
-                                'role': 'assistant',
-                                'content': response_content
-                            })
-                        else:
-                            st.session_state.messages.append({
-                                'role': 'assistant',
-                                'content': f"❌ Multi-agent collaboration error: {result.get('error', 'Unknown error')}"
-                            })
-
-                    except Exception as e:
-                        st.session_state.messages.append({
-                            'role': 'assistant',
-                            'content': f"❌ System error: {str(e)}"
-                        })
-
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("🚀 Login", type="primary", use_container_width=True):
+                if username in USERS and USERS[username] == password:
+                    st.session_state.authenticated = True
+                    st.session_state.username = username
+                    st.session_state.show_login = False
+                    st.success(f"Welcome {username}!")
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+        with col_btn2:
+            if st.button("Cancel", use_container_width=True):
+                st.session_state.show_login = False
                 st.rerun()
 
-            else:
-                st.warning("⚠️ Please enter a question or prompt.")
+        st.markdown("**Demo Accounts:**")
+        st.code("demo / demo123\nadmin / admin123\nkyle / kyle123")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# Main AI Chat Interface (Always visible)
+st.markdown("## 🤖 Multi-Agent AI Collaboration")
+
+# Display messages
+for msg in st.session_state.messages:
+    if msg['role'] == 'user':
+        st.markdown(f'<div class="user-message">{msg["content"]}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="ai-response">{msg["content"]}</div>', unsafe_allow_html=True)
+
+# Chat input
+with st.form("chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        user_input = st.text_area("Ask AI anything:", height=100,
+                                placeholder="Try: 'How do I make a paper airplane, the RIGHT way?' or 'Analyze the future of AI technology'")
+    with col2:
+        mode = st.selectbox("Mode", ["Production", "Research", "Fast"],
+                           help="Production: Full collaboration • Research: Research-focused • Fast: Quick response")
+
+    if st.form_submit_button("🚀 Start Multi-Agent Collaboration", type="primary"):
+        if user_input:
+            # Add user message
+            st.session_state.messages.append({
+                'role': 'user',
+                'content': user_input
+            })
+
+            # Show processing indicator
+            with st.spinner("🧠 Multi-agent collaboration in progress... Consulting multiple AI systems..."):
+                try:
+                    # Use real multi-agent collaboration
+                    result = asyncio.run(real_multi_agent_collaboration(user_input, mode.lower()))
+
+                    if result['success']:
+                        # Add collaboration response
+                        response_content = result['response']
+                        details = result['collaboration_details']
+
+                        if details:
+                            response_content += f"\n\n**🔍 Collaboration Details:**\n"
+                            response_content += f"• **Agents Used:** {', '.join(details.get('agents_used', []))}\n"
+                            response_content += f"• **Models:** {', '.join(details.get('models_used', []))}\n"
+                            response_content += f"• **Processing Time:** {details.get('processing_time', 0):.2f}s\n"
+                            response_content += f"• **Total Cost:** ${details.get('total_cost', 0):.4f}\n"
+                            response_content += f"• **Confidence:** {details.get('confidence', 0.8):.1%}"
+
+                        st.session_state.messages.append({
+                            'role': 'assistant',
+                            'content': response_content
+                        })
+                    else:
+                        st.session_state.messages.append({
+                            'role': 'assistant',
+                            'content': f"❌ Multi-agent collaboration error: {result.get('error', 'Unknown error')}"
+                        })
+
+                except Exception as e:
+                    st.session_state.messages.append({
+                        'role': 'assistant',
+                        'content': f"❌ System error: {str(e)}"
+                    })
+
+            st.rerun()
+
+        else:
+            st.warning("⚠️ Please enter a question or prompt.")
 
 # Footer
 st.markdown("---")
