@@ -805,18 +805,30 @@ st.markdown("""
 # Helper functions for chat threads
 def create_new_thread():
     """Create a new chat thread"""
-    st.session_state.thread_counter += 1
-    thread_id = f"thread_{st.session_state.thread_counter}"
-    thread = {
-        'id': thread_id,
-        'title': 'New chat',
-        'messages': [],
-        'created_at': datetime.now()
-    }
-    st.session_state.chat_threads.append(thread)
-    st.session_state.current_thread_id = thread_id
-    st.session_state.messages = []
-    return thread_id
+    if st.session_state.db and st.session_state.user_id:
+        # Create in database
+        project_id = st.session_state.current_project_id if st.session_state.current_project_id else None
+        thread_id = st.session_state.db.create_thread(st.session_state.user_id, "New chat", project_id)
+        if thread_id:
+            # Reload threads from database
+            st.session_state.chat_threads = st.session_state.db.get_user_threads(st.session_state.user_id)
+            st.session_state.current_thread_id = thread_id
+            st.session_state.messages = []
+            return thread_id
+    else:
+        # Fallback to session state only
+        st.session_state.thread_counter += 1
+        thread_id = f"thread_{st.session_state.thread_counter}"
+        thread = {
+            'id': thread_id,
+            'title': 'New chat',
+            'messages': [],
+            'created_at': datetime.now()
+        }
+        st.session_state.chat_threads.append(thread)
+        st.session_state.current_thread_id = thread_id
+        st.session_state.messages = []
+        return thread_id
 
 def get_current_thread():
     """Get the current active thread"""
@@ -831,43 +843,73 @@ def get_current_thread():
 def switch_thread(thread_id):
     """Switch to a different thread"""
     st.session_state.current_thread_id = thread_id
-    for thread in st.session_state.chat_threads:
-        if thread['id'] == thread_id:
-            st.session_state.messages = thread['messages']
-            break
+
+    # Load messages from database
+    if st.session_state.db:
+        messages = st.session_state.db.get_thread_messages(thread_id)
+        st.session_state.messages = [{'role': m['role'], 'content': m['content']} for m in messages]
+    else:
+        # Fallback to session state
+        for thread in st.session_state.chat_threads:
+            if thread['id'] == thread_id:
+                st.session_state.messages = thread.get('messages', [])
+                break
 
 def update_thread_title(thread_id, first_message):
     """Update thread title based on first message"""
+    title = first_message[:50] + ('...' if len(first_message) > 50 else '')
+
+    if st.session_state.db:
+        st.session_state.db.update_thread_title(thread_id, title)
+
+    # Update in session state
     for thread in st.session_state.chat_threads:
         if thread['id'] == thread_id and thread['title'] == 'New chat':
-            # Use first 50 chars of message as title
-            thread['title'] = first_message[:50] + ('...' if len(first_message) > 50 else '')
+            thread['title'] = title
             break
 
 # Helper functions for projects
 def create_new_project(name: str, description: str = ""):
     """Create a new project workspace"""
-    st.session_state.project_counter += 1
-    project_id = f"project_{st.session_state.project_counter}"
-    project = {
-        'id': project_id,
-        'name': name,
-        'description': description,
-        'files': [],
-        'threads': [],
-        'created_at': datetime.now(),
-        'folder_path': None
-    }
-    st.session_state.projects.append(project)
-    st.session_state.current_project_id = project_id
-    return project_id
+    if st.session_state.db and st.session_state.user_id:
+        # Create in database
+        project_id = st.session_state.db.create_project(st.session_state.user_id, name, description)
+        if project_id:
+            # Reload projects from database
+            st.session_state.projects = st.session_state.db.get_user_projects(st.session_state.user_id)
+            st.session_state.current_project_id = project_id
+            return project_id
+    else:
+        # Fallback to session state only
+        st.session_state.project_counter += 1
+        project_id = f"project_{st.session_state.project_counter}"
+        project = {
+            'id': project_id,
+            'name': name,
+            'description': description,
+            'files': [],
+            'threads': [],
+            'created_at': datetime.now(),
+            'folder_path': None
+        }
+        st.session_state.projects.append(project)
+        st.session_state.current_project_id = project_id
+        return project_id
 
 def get_current_project():
     """Get the current active project"""
     if not st.session_state.current_project_id:
         return None
+
+    # Try to find in session projects
     for project in st.session_state.projects:
         if project['id'] == st.session_state.current_project_id:
+            # Load files if not loaded
+            if 'files' not in project or not isinstance(project.get('files'), list):
+                if st.session_state.db:
+                    project['files'] = st.session_state.db.get_project_files(project['id'])
+                else:
+                    project['files'] = []
             return project
     return None
 
@@ -877,10 +919,23 @@ def switch_project(project_id: Optional[str]):
 
 def add_file_to_project(project_id: str, file_info: Dict):
     """Add a file to a project"""
-    for project in st.session_state.projects:
-        if project['id'] == project_id:
-            project['files'].append(file_info)
-            break
+    if st.session_state.db:
+        # Save to database
+        file_id = st.session_state.db.add_file_to_project(project_id, file_info)
+        if file_id:
+            # Reload files for this project
+            for project in st.session_state.projects:
+                if project['id'] == project_id:
+                    project['files'] = st.session_state.db.get_project_files(project_id)
+                    break
+    else:
+        # Fallback to session state
+        for project in st.session_state.projects:
+            if project['id'] == project_id:
+                if 'files' not in project:
+                    project['files'] = []
+                project['files'].append(file_info)
+                break
 
 def process_uploaded_file(uploaded_file):
     """Process an uploaded file and extract text content"""
@@ -1289,7 +1344,31 @@ with st.sidebar:
     st.markdown("")
     st.markdown("---")
 
+    # User info and logout
+    if st.session_state.user:
+        st.caption(f"👤 {st.session_state.user.get('username', 'User')}")
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Settings", use_container_width=True, key="settings_btn"):
+                st.session_state.show_settings = True
+                st.rerun()
+        with col_b:
+            if st.button("Logout", use_container_width=True, key="logout_btn"):
+                st.session_state.authenticated = False
+                st.session_state.user = None
+                st.session_state.user_id = None
+                st.session_state.messages = []
+                st.session_state.chat_threads = []
+                st.session_state.projects = []
+                st.session_state.current_thread_id = None
+                st.session_state.current_project_id = None
+                st.session_state.projects_loaded = False
+                st.session_state.threads_loaded = False
+                st.rerun()
+
     # Minimal status
+    st.markdown("")
     if production_engine_available:
         available_count = len([k for k, v in api_status.items() if v and k not in ['notion', 'gemini']])
         st.caption(f"⬡ AI Hub · {available_count} agents")
@@ -1315,6 +1394,100 @@ if st.session_state.show_project_modal:
             if st.button("Cancel", use_container_width=True):
                 st.session_state.show_project_modal = False
                 st.rerun()
+        st.markdown("---")
+
+# Settings modal
+if 'show_settings' not in st.session_state:
+    st.session_state.show_settings = False
+
+if st.session_state.show_settings:
+    with st.container():
+        st.markdown("### ⚙️ Settings")
+
+        st.markdown("#### Account")
+        st.caption(f"**Username:** {st.session_state.user.get('username')}")
+        st.caption(f"**Email:** {st.session_state.user.get('email')}")
+
+        st.markdown("")
+        st.markdown("#### Two-Factor Authentication (MFA)")
+
+        mfa_enabled = st.session_state.user.get('mfa_enabled', False)
+
+        if mfa_enabled:
+            st.success("✅ MFA is enabled")
+            if st.button("Disable MFA", key="disable_mfa_btn"):
+                if st.session_state.db:
+                    # You'd need to add disable_mfa method to database.py
+                    st.warning("Contact administrator to disable MFA")
+                st.rerun()
+        else:
+            st.info("🔒 Enable MFA for enhanced security")
+            if st.button("Enable MFA", type="primary", key="enable_mfa_btn"):
+                if st.session_state.db and st.session_state.user_id:
+                    secret = st.session_state.db.enable_mfa(st.session_state.user_id)
+                    if secret:
+                        st.session_state.mfa_secret = secret
+                        st.session_state.show_mfa_qr = True
+                        st.rerun()
+
+        # Show QR code for MFA setup
+        if 'show_mfa_qr' in st.session_state and st.session_state.show_mfa_qr:
+            secret = st.session_state.get('mfa_secret')
+            if secret:
+                st.markdown("#### Scan this QR code with your authenticator app:")
+
+                # Generate QR code
+                username = st.session_state.user.get('username')
+                uri = pyotp.totp.TOTP(secret).provisioning_uri(
+                    name=username,
+                    issuer_name="AI Hub"
+                )
+
+                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr.add_data(uri)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+
+                # Display QR code
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                st.image(buf.getvalue())
+
+                st.code(f"Manual entry: {secret}", language=None)
+
+                st.caption("Scan this with Google Authenticator, Authy, or any TOTP app")
+
+                verify_code = st.text_input("Enter 6-digit code to verify", max_chars=6, key="verify_mfa_code")
+
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if st.button("Verify & Enable", type="primary", use_container_width=True):
+                        if st.session_state.db and st.session_state.db.verify_mfa(st.session_state.user_id, verify_code):
+                            st.success("MFA enabled successfully!")
+                            st.session_state.show_mfa_qr = False
+                            st.session_state.mfa_secret = None
+                            # Reload user data
+                            st.session_state.user = st.session_state.db.verify_user(
+                                st.session_state.user['username'],
+                                ""  # Password not needed for reload
+                            ) or st.session_state.user
+                            st.session_state.user['mfa_enabled'] = True
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Invalid code. Please try again.")
+                with col_b:
+                    if st.button("Cancel", use_container_width=True):
+                        st.session_state.show_mfa_qr = False
+                        st.session_state.mfa_secret = None
+                        st.rerun()
+
+        st.markdown("---")
+
+        if st.button("Close Settings", use_container_width=True):
+            st.session_state.show_settings = False
+            st.rerun()
+
         st.markdown("---")
 
 # Main Chat Interface
@@ -1350,9 +1523,9 @@ if submit and user_input:
         'content': user_input
     })
 
-    # Save to thread
-    if current_thread:
-        current_thread['messages'] = st.session_state.messages
+    # Save user message to database
+    if st.session_state.db and st.session_state.current_thread_id:
+        st.session_state.db.add_message(st.session_state.current_thread_id, 'user', user_input)
 
     # Show processing indicator
     with st.spinner("Thinking..."):
@@ -1384,15 +1557,20 @@ if submit and user_input:
                     'role': 'assistant',
                     'content': response_content
                 })
+
+                # Save assistant message to database
+                if st.session_state.db and st.session_state.current_thread_id:
+                    st.session_state.db.add_message(st.session_state.current_thread_id, 'assistant', response_content)
             else:
+                error_msg = f"Error: {result.get('error', 'Unknown error')}"
                 st.session_state.messages.append({
                     'role': 'assistant',
-                    'content': f"Error: {result.get('error', 'Unknown error')}"
+                    'content': error_msg
                 })
 
-            # Save to thread
-            if current_thread:
-                current_thread['messages'] = st.session_state.messages
+                # Save error message to database
+                if st.session_state.db and st.session_state.current_thread_id:
+                    st.session_state.db.add_message(st.session_state.current_thread_id, 'assistant', error_msg)
 
         except Exception as e:
             st.session_state.messages.append({
