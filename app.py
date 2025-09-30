@@ -37,12 +37,23 @@ except ImportError:
 
 # Get API keys from environment variables (Railway) or Streamlit secrets
 def get_api_key(service):
-    # Try environment variables first (Railway deployment)
+    # Try multiple naming conventions for Railway environment variables
+    # 1. Try lowercase service name (Railway custom names: anthropic, openai, perplexity)
+    env_key = os.getenv(service.lower())
+    if env_key:
+        return env_key
+
+    # 2. Try uppercase service name (ANTHROPIC, OPENAI, PERPLEXITY)
+    env_key = os.getenv(service.upper())
+    if env_key:
+        return env_key
+
+    # 3. Try standard format with _API_KEY suffix (ANTHROPIC_API_KEY, etc.)
     env_key = os.getenv(f"{service.upper()}_API_KEY")
     if env_key:
         return env_key
 
-    # Fall back to Streamlit secrets (alternative deployment)
+    # 4. Fall back to Streamlit secrets (alternative deployment)
     try:
         return st.secrets.get(f"{service.upper()}_API_KEY")
     except:
