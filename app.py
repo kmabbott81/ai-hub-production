@@ -116,8 +116,10 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
     agent_errors = []
     total_cost = 0.0
 
-    # Helper function to call agents in parallel
-    async def call_perplexity():
+    # Helper function to call agents in parallel (using threading for sync APIs)
+    import concurrent.futures
+
+    def call_perplexity_sync():
         if not api_status.get('perplexity'):
             return None
         try:
@@ -128,14 +130,14 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             payload = {
                 "model": "sonar-pro",
                 "messages": [{"role": "user", "content": f"Research and analyze: {query}"}],
-                "max_tokens": 1000,
+                "max_tokens": 600,  # Reduced for speed
                 "temperature": 0.2
             }
             response = requests.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=15  # Reduced timeout
             )
             if response.status_code == 200:
                 data = response.json()
@@ -149,19 +151,24 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"Perplexity: {str(e)}")
         return None
 
-    async def call_claude():
+    def call_claude_sync():
         if not api_status.get('anthropic'):
             return None
         try:
-            client = anthropic.Anthropic(api_key=get_api_key("anthropic"))
+            api_key = get_api_key("anthropic")
+            if not api_key:
+                agent_errors.append("Claude: No API key found")
+                return None
+
+            client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=1000,
+                model="claude-3-5-sonnet-20241022",  # Updated to latest model
+                max_tokens=600,  # Reduced for speed
                 messages=[{"role": "user", "content": f"Provide deep analysis and insights for: {query}"}]
             )
             return {
                 'agent': 'Claude Analysis Agent',
-                'model': 'claude-3-sonnet',
+                'model': 'claude-3.5-sonnet',
                 'response': f"**Deep Analysis:** {response.content[0].text}",
                 'cost': 0.003
             }
@@ -169,7 +176,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"Claude: {str(e)}")
         return None
 
-    async def call_openai():
+    def call_openai_sync():
         if not api_status.get('openai'):
             return None
         try:
@@ -177,7 +184,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": f"Provide creative insights and alternative perspectives on: {query}"}],
-                max_tokens=1000,
+                max_tokens=600,  # Reduced for speed
                 temperature=0.7
             )
             return {
@@ -190,34 +197,36 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"OpenAI: {str(e)}")
         return None
 
-    async def call_gemini():
+    def call_gemini_sync():
         if not api_status.get('gemini'):
             return None
         try:
             genai.configure(api_key=get_api_key("gemini"))
-            model = genai.GenerativeModel('gemini-pro')
+            # Use the latest stable model
+            model = genai.GenerativeModel('gemini-1.5-flash')  # Faster model, or use 'gemini-1.5-pro'
             response = model.generate_content(
                 f"Provide a synthesized perspective with practical applications for: {query}",
-                generation_config={'temperature': 0.5, 'max_output_tokens': 1000}
+                generation_config={'temperature': 0.5, 'max_output_tokens': 600}  # Reduced for speed
             )
             return {
                 'agent': 'Gemini Synthesis Agent',
-                'model': 'gemini-pro',
+                'model': 'gemini-1.5-flash',
                 'response': f"**Practical Synthesis:** {response.text}",
-                'cost': 0.002
+                'cost': 0.001  # Flash is cheaper
             }
         except Exception as e:
             agent_errors.append(f"Gemini: {str(e)}")
         return None
 
-    # Execute all agents in parallel (not sequential!)
-    results = await asyncio.gather(
-        call_perplexity(),
-        call_claude(),
-        call_openai(),
-        call_gemini(),
-        return_exceptions=True
-    )
+    # Execute all agents in TRUE parallel using ThreadPoolExecutor (faster for sync APIs)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(call_perplexity_sync),
+            executor.submit(call_claude_sync),
+            executor.submit(call_openai_sync),
+            executor.submit(call_gemini_sync)
+        ]
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
     # Process results from parallel execution
     for result in results:
