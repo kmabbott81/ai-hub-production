@@ -494,15 +494,19 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
-    /* Root variables - Low glare color palette */
+    /* Root variables - Professional AI platform palette */
     :root {
-        --bg-primary: #f7f7f8;
+        --bg-primary: #f9f9f9;
         --bg-secondary: #ffffff;
-        --text-primary: #202123;
-        --text-secondary: #6e6e80;
-        --border-light: #e5e5e5;
-        --accent-primary: #19c37d;
-        --accent-hover: #1a7f5a;
+        --bg-hover: #f0f0f0;
+        --text-primary: #2e2e2e;
+        --text-secondary: #6b6b6b;
+        --text-tertiary: #9b9b9b;
+        --border-light: #e0e0e0;
+        --border-lighter: #ececec;
+        --accent-primary: #8b9dc3;
+        --accent-hover: #6b7fa3;
+        --accent-subtle: #dfe3eb;
     }
 
     /* Global reset */
@@ -552,122 +556,215 @@ st.markdown("""
         letter-spacing: -0.01em;
     }
 
-    /* Chat thread item */
+    /* Sidebar thread list - ChatGPT style */
     .thread-item {
-        padding: 0.5rem 0.75rem;
-        margin: 0.25rem 0;
+        padding: 0.625rem 0.75rem;
+        margin: 0.125rem 0;
         border-radius: 0.375rem;
         cursor: pointer;
         color: var(--text-primary);
         font-size: 0.875rem;
-        transition: background 0.15s;
-        border: 1px solid transparent;
+        font-weight: 400;
+        transition: background 0.1s;
+        border: none;
+        background: transparent;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .thread-item:hover {
-        background: var(--bg-primary);
+        background: var(--bg-hover);
     }
 
     .thread-item.active {
-        background: var(--bg-primary);
-        border-color: var(--border-light);
+        background: var(--bg-hover);
     }
 
-    /* Message container */
+    /* Message container - Clean, no borders */
     .message {
         margin: 1.5rem 0;
-        padding: 1rem 1.25rem;
-        border-radius: 0.5rem;
-        line-height: 1.6;
+        padding: 0;
+        line-height: 1.7;
+        font-size: 0.9375rem;
     }
 
     .user-message {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-light);
         color: var(--text-primary);
+        background: transparent;
     }
 
     .ai-message {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-light);
+        color: var(--text-primary);
+        background: transparent;
+    }
+
+    .ai-message h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin: 1.5rem 0 0.75rem 0;
         color: var(--text-primary);
     }
 
-    .ai-message h2, .ai-message h3 {
-        color: var(--text-primary);
+    .ai-message h3 {
+        font-size: 1rem;
         font-weight: 600;
-        margin: 1rem 0 0.5rem 0;
+        margin: 1.25rem 0 0.5rem 0;
+        color: var(--text-primary);
     }
 
     .ai-message code {
-        background: var(--bg-primary);
-        padding: 0.125rem 0.25rem;
+        background: var(--bg-hover);
+        padding: 0.125rem 0.375rem;
         border-radius: 0.25rem;
         font-size: 0.875rem;
+        font-family: 'SF Mono', Monaco, Consolas, monospace;
     }
 
-    /* Button styling */
-    .stButton > button {
-        background: var(--accent-primary);
-        color: white;
+    .ai-message strong {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Primary action button - Minimal */
+    .stButton > button[kind="primary"] {
+        background: var(--text-primary);
+        color: var(--bg-secondary);
         border: none;
         border-radius: 0.375rem;
-        padding: 0.5rem 1rem;
+        padding: 0.5rem 0.875rem;
         font-weight: 500;
-        font-size: 0.875rem;
-        transition: background 0.15s;
+        font-size: 0.8125rem;
+        transition: opacity 0.1s;
+        height: 2.25rem;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        opacity: 0.85;
+        background: var(--text-primary);
+    }
+
+    /* Secondary buttons - Ghost style */
+    .stButton > button {
+        background: transparent;
+        color: var(--text-primary);
+        border: none;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-weight: 400;
+        font-size: 0.8125rem;
+        transition: background 0.1s;
+        height: 2.25rem;
     }
 
     .stButton > button:hover {
-        background: var(--accent-hover);
+        background: var(--bg-hover);
     }
 
-    /* Input fields */
+    /* Input fields - Claude/ChatGPT style */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
         border: 1px solid var(--border-light);
-        border-radius: 0.375rem;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.9375rem;
         background: var(--bg-secondary);
         color: var(--text-primary);
+        transition: border-color 0.1s, box-shadow 0.1s;
+        font-weight: 400;
+        line-height: 1.5;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
 
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: var(--accent-primary);
+        border-color: var(--text-primary);
         outline: none;
-        box-shadow: 0 0 0 1px var(--accent-primary);
+        box-shadow: 0 0 0 1px var(--text-primary);
     }
 
-    /* Scrollbar */
+    /* Scrollbar - macOS style */
     ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
+        height: 6px;
     }
 
     ::-webkit-scrollbar-track {
-        background: var(--bg-primary);
+        background: transparent;
     }
 
     ::-webkit-scrollbar-thumb {
         background: var(--border-light);
-        border-radius: 4px;
+        border-radius: 3px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: var(--text-secondary);
+        background: var(--text-tertiary);
     }
 
-    /* Status indicator */
+    /* Status indicator - Subtle */
     .status-pill {
         display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
+        padding: 0.25rem 0.625rem;
+        border-radius: 0.375rem;
         font-size: 0.75rem;
         font-weight: 500;
-        background: var(--bg-primary);
-        color: var(--text-secondary);
-        border: 1px solid var(--border-light);
+        background: transparent;
+        color: var(--text-tertiary);
+        border: 1px solid var(--border-lighter);
+    }
+
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Sidebar styling refinement */
+    [data-testid="stSidebar"] {
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-lighter);
+        padding-top: 0;
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 0.5rem;
+    }
+
+    /* Remove button focus outline */
+    .stButton > button:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    /* Divider styling */
+    hr {
+        border: none;
+        height: 1px;
+        background: var(--border-lighter);
+        margin: 0.75rem 0;
+    }
+
+    /* Send button styling - ChatGPT style circular button */
+    .stButton > button[kind="primary"] {
+        background: var(--text-primary);
+        color: var(--bg-secondary);
+        border: none;
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.625rem;
+        font-weight: 500;
+        font-size: 1.125rem;
+        transition: opacity 0.1s;
+        height: auto;
+        width: auto;
+        min-width: 2.5rem;
+        line-height: 1;
+    }
+
+    /* Caption styling */
+    .element-container .stCaption {
+        font-size: 0.75rem;
+        color: var(--text-tertiary);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -718,103 +815,58 @@ def update_thread_title(thread_id, first_message):
 if len(st.session_state.chat_threads) == 0:
     create_new_thread()
 
-# Sidebar - Chat history and controls
+# Sidebar - Chat history
 with st.sidebar:
-    # Top bar with logo
-    st.markdown('<div class="top-bar"><h1>⬡ AI Hub</h1></div>', unsafe_allow_html=True)
-
     # New chat button
     if st.button("+ New chat", use_container_width=True, type="primary"):
         create_new_thread()
         st.rerun()
 
-    st.markdown("---")
+    st.markdown("")
 
     # Chat threads list
-    st.markdown("**Chat History**")
     for thread in reversed(st.session_state.chat_threads):
         is_active = thread['id'] == st.session_state.current_thread_id
-        thread_class = "thread-item active" if is_active else "thread-item"
 
         if st.button(
             thread['title'],
             key=f"thread_{thread['id']}",
             use_container_width=True,
-            type="secondary" if not is_active else "primary"
+            type="primary" if is_active else "secondary"
         ):
             switch_thread(thread['id'])
             st.rerun()
 
+    # Bottom section
+    st.markdown("")
     st.markdown("---")
 
-    # API Status
+    # Minimal status
     if production_engine_available:
         available_count = len([k for k, v in api_status.items() if v and k not in ['notion', 'gemini']])
-        st.markdown(f'<div class="status-pill">✓ {available_count} agents active</div>', unsafe_allow_html=True)
+        st.caption(f"⬡ AI Hub · {available_count} agents")
 
-    # Login section
-    st.markdown("")
-    st.markdown("")
-    if st.session_state.authenticated:
-        st.markdown(f"**{st.session_state.username}**")
-        if st.button("Logout", use_container_width=True):
-            st.session_state.authenticated = False
-            st.session_state.username = None
-            st.rerun()
-    else:
-        if st.button("Login", use_container_width=True):
-            st.session_state.show_login = True
-            st.rerun()
-
-# Login Modal (only if show_login is True)
-if st.session_state.show_login and not st.session_state.authenticated:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("### Login to AI Hub")
-        username = st.text_input("Username", placeholder="demo, admin, or kyle", key="login_username")
-        password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
-
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("Login", type="primary", use_container_width=True):
-                if username in USERS and USERS[username] == password:
-                    st.session_state.authenticated = True
-                    st.session_state.username = username
-                    st.session_state.show_login = False
-                    st.success(f"Welcome {username}!")
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials")
-        with col_btn2:
-            if st.button("Cancel", use_container_width=True):
-                st.session_state.show_login = False
-                st.rerun()
-
-        st.markdown("**Demo accounts:** demo/demo123, admin/admin123, kyle/kyle123")
 
 # Main Chat Interface
 # Display messages
 for msg in st.session_state.messages:
     if msg['role'] == 'user':
-        st.markdown(f'<div class="message user-message">**You**\n\n{msg["content"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="message user-message">{msg["content"]}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="message ai-message">{msg["content"]}</div>', unsafe_allow_html=True)
 
-# Chat input at bottom
-st.markdown("")
+# Chat input
 st.markdown("")
 
 user_input = st.text_area(
     "Message AI Hub",
-    height=100,
-    placeholder="Ask anything...",
+    height=80,
+    placeholder="Message AI Hub",
     label_visibility="collapsed",
     key="user_input"
 )
 
-col1, col2 = st.columns([5, 1])
-with col1:
-    submit = st.button("Send", type="primary", use_container_width=True)
+submit = st.button("↑", type="primary", use_container_width=False)
 
 if submit and user_input:
     # Update thread title if first message
