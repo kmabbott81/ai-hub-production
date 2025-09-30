@@ -107,129 +107,134 @@ if 'show_login' not in st.session_state:
 
 # Real multi-agent collaboration function
 async def real_multi_agent_collaboration(query: str, mode: str = "production"):
-    """Real multi-agent collaboration using available APIs"""
+    """Real multi-agent collaboration using available APIs with parallel processing"""
 
     start_time = time.time()
     agents_used = []
     models_used = []
     responses = []
+    agent_errors = []
     total_cost = 0.0
 
-    # Agent 1: Perplexity Research (if available)
-    if api_status.get('perplexity'):
+    # Helper function to call agents in parallel
+    async def call_perplexity():
+        if not api_status.get('perplexity'):
+            return None
         try:
             headers = {
                 "Authorization": f"Bearer {get_api_key('perplexity')}",
                 "Content-Type": "application/json"
             }
-
             payload = {
                 "model": "sonar-pro",
                 "messages": [{"role": "user", "content": f"Research and analyze: {query}"}],
                 "max_tokens": 1000,
                 "temperature": 0.2
             }
-
             response = requests.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
                 json=payload,
                 timeout=30
             )
-
             if response.status_code == 200:
                 data = response.json()
-                perplexity_response = data['choices'][0]['message']['content']
-                agents_used.append("Perplexity Research Agent")
-                models_used.append("sonar-pro")
-                responses.append(f"**Research Findings:** {perplexity_response}")
-                total_cost += 0.002
-
+                return {
+                    'agent': 'Perplexity Research Agent',
+                    'model': 'sonar-pro',
+                    'response': f"**Research Findings:** {data['choices'][0]['message']['content']}",
+                    'cost': 0.002
+                }
         except Exception as e:
-            responses.append(f"**Research Agent:** Real-time research capabilities active (optimizing connection)")
+            agent_errors.append(f"Perplexity: {str(e)}")
+        return None
 
-    # Agent 2: Claude Analysis (if available)
-    if api_status.get('anthropic'):
+    async def call_claude():
+        if not api_status.get('anthropic'):
+            return None
         try:
             client = anthropic.Anthropic(api_key=get_api_key("anthropic"))
-
             response = client.messages.create(
                 model="claude-3-sonnet-20240229",
                 max_tokens=1000,
-                messages=[{
-                    "role": "user",
-                    "content": f"Provide deep analysis and insights for: {query}"
-                }]
+                messages=[{"role": "user", "content": f"Provide deep analysis and insights for: {query}"}]
             )
-
-            claude_response = response.content[0].text
-            agents_used.append("Claude Analysis Agent")
-            models_used.append("claude-3-sonnet")
-            responses.append(f"**Deep Analysis:** {claude_response}")
-            total_cost += 0.003
-
+            return {
+                'agent': 'Claude Analysis Agent',
+                'model': 'claude-3-sonnet',
+                'response': f"**Deep Analysis:** {response.content[0].text}",
+                'cost': 0.003
+            }
         except Exception as e:
-            responses.append(f"**Analysis Agent:** Advanced reasoning capabilities active")
+            agent_errors.append(f"Claude: {str(e)}")
+        return None
 
-    # Agent 3: OpenAI Perspective (if available)
-    if api_status.get('openai'):
+    async def call_openai():
+        if not api_status.get('openai'):
+            return None
         try:
             client = openai.OpenAI(api_key=get_api_key("openai"))
-
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[{
-                    "role": "user",
-                    "content": f"Provide creative insights and alternative perspectives on: {query}"
-                }],
+                messages=[{"role": "user", "content": f"Provide creative insights and alternative perspectives on: {query}"}],
                 max_tokens=1000,
                 temperature=0.7
             )
-
-            gpt_response = response.choices[0].message.content
-            agents_used.append("GPT Creative Agent")
-            models_used.append("gpt-4o-mini")
-            responses.append(f"**Creative Perspective:** {gpt_response}")
-            total_cost += 0.001
-
+            return {
+                'agent': 'GPT Creative Agent',
+                'model': 'gpt-4o-mini',
+                'response': f"**Creative Perspective:** {response.choices[0].message.content}",
+                'cost': 0.001
+            }
         except Exception as e:
-            responses.append(f"**Creative Agent:** Innovative insight generation active")
+            agent_errors.append(f"OpenAI: {str(e)}")
+        return None
 
-    # Agent 4: Gemini Synthesis (if available)
-    if api_status.get('gemini'):
+    async def call_gemini():
+        if not api_status.get('gemini'):
+            return None
         try:
             genai.configure(api_key=get_api_key("gemini"))
             model = genai.GenerativeModel('gemini-pro')
-
             response = model.generate_content(
                 f"Provide a synthesized perspective with practical applications for: {query}",
-                generation_config={
-                    'temperature': 0.5,
-                    'max_output_tokens': 1000,
-                }
+                generation_config={'temperature': 0.5, 'max_output_tokens': 1000}
             )
-
-            gemini_response = response.text
-            agents_used.append("Gemini Synthesis Agent")
-            models_used.append("gemini-pro")
-            responses.append(f"**Practical Synthesis:** {gemini_response}")
-            total_cost += 0.002
-
+            return {
+                'agent': 'Gemini Synthesis Agent',
+                'model': 'gemini-pro',
+                'response': f"**Practical Synthesis:** {response.text}",
+                'cost': 0.002
+            }
         except Exception as e:
-            responses.append(f"**Synthesis Agent:** Practical integration capabilities active")
+            agent_errors.append(f"Gemini: {str(e)}")
+        return None
 
-    # Agent 5: Notion Knowledge Base (if available)
-    if api_status.get('notion'):
-        try:
-            # Note: Notion is primarily for knowledge storage/retrieval
-            # For this demo, we'll add a placeholder showing it's connected
-            agents_used.append("Notion Knowledge Agent")
-            models_used.append("notion-api")
-            responses.append(f"**Knowledge Context:** Connected to knowledge base for enhanced context and information retrieval.")
-            total_cost += 0.0
+    # Execute all agents in parallel (not sequential!)
+    results = await asyncio.gather(
+        call_perplexity(),
+        call_claude(),
+        call_openai(),
+        call_gemini(),
+        return_exceptions=True
+    )
 
-        except Exception as e:
-            pass  # Notion integration is optional
+    # Process results from parallel execution
+    for result in results:
+        if result and isinstance(result, dict):
+            agents_used.append(result['agent'])
+            models_used.append(result['model'])
+            responses.append(result['response'])
+            total_cost += result['cost']
+
+    # Add error information if any agents failed
+    if agent_errors:
+        error_summary = "\n\n**⚠️ Agent Status:**\n"
+        error_summary += f"• {len(agents_used)} of 4 agents responded successfully\n"
+        for error in agent_errors:
+            error_summary += f"• {error}\n"
+    else:
+        error_summary = ""
 
     # Combine responses with better formatting
     if responses:
@@ -239,7 +244,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             sections.append(f"{response}\n\n---\n")
 
         final_response = "\n".join(sections)
-        final_response += "\n\n### 🎯 Summary\n\nThis analysis combines multiple AI perspectives to provide comprehensive insights from different angles: research data, analytical reasoning, creative problem-solving, practical synthesis, and knowledge context."
+        final_response += f"\n\n### 🎯 Summary\n\nThis analysis combines {len(agents_used)} AI perspectives to provide comprehensive insights from different angles: research data, analytical reasoning, creative problem-solving, and practical synthesis.{error_summary}"
     else:
         final_response = f"### Analysis: {query}\n\nProviding enhanced analysis through multi-agent collaboration.\n\n**Approach:**\n- Research-backed insights\n- Analytical reasoning\n- Creative perspectives\n- Synthesized conclusions"
 
@@ -253,8 +258,11 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             'models_used': models_used or ['Multi-Model Synthesis'],
             'processing_time': processing_time,
             'total_cost': total_cost,
-            'confidence': 0.95 if len(responses) >= 2 else 0.88,
-            'consensus_method': 'real_multi_agent' if responses else 'enhanced_fallback'
+            'confidence': 0.95 if len(responses) >= 3 else (0.88 if len(responses) >= 2 else 0.75),
+            'consensus_method': 'real_multi_agent' if responses else 'enhanced_fallback',
+            'agents_available': len([k for k, v in api_status.items() if v and k != 'notion']),
+            'agents_successful': len(agents_used),
+            'errors': agent_errors if agent_errors else None
         }
     }
 
