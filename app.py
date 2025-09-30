@@ -185,138 +185,227 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
         }
     }
 
-# Modern CSS
+# Modern CSS - Inspired by best-in-class AI platforms
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    .main {
-        padding: 0;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        line-height: 1.5;
+    /* Global Styles - Notion-inspired clean spacing */
+    * {
+        transition: all 0.2s ease;
     }
 
+    .main {
+        background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+        padding: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1.6;
+    }
+
+    .block-container {
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+        max-width: 900px;
+    }
+
+    /* Header - Claude/ChatGPT inspired minimalist elegance */
     .header {
-        background: linear-gradient(135deg, #0066cc 0%, #004499 50%, #0052cc 100%);
-        padding: 1.5rem 2rem;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+        padding: 3rem 2rem;
         color: white;
-        margin: -1rem -1rem 2rem -1rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        margin: -3rem -1rem 3rem -1rem;
+        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
         text-align: center;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
     }
 
     .header h1 {
         margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-        letter-spacing: -0.025em;
+        font-size: 2.75rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        background: linear-gradient(to right, #ffffff, #e0e7ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .header p {
-        margin: 0.5rem 0 0 0;
-        opacity: 0.9;
-        font-size: 1.1rem;
+        margin: 1rem 0 0 0;
+        opacity: 0.95;
+        font-size: 1.15rem;
         font-weight: 400;
+        letter-spacing: 0.01em;
     }
 
-    .performance-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-top: 1rem;
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
-    }
-
+    /* AI Response - Perplexity-inspired clean cards with better readability */
     .ai-response {
-        background: white;
+        background: #ffffff;
         border: 1px solid #e5e7eb;
-        border-radius: 18px 18px 18px 4px;
-        padding: 2rem;
-        margin: 1.5rem auto 1.5rem 0;
-        max-width: 90%;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin: 2rem 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
         position: relative;
         line-height: 1.8;
-        font-size: 1.05rem;
+        font-size: 1rem;
+        color: #1f2937;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     .ai-response::before {
-        content: "🤖";
+        content: "✨";
         position: absolute;
-        top: -10px;
-        left: 20px;
-        background: white;
-        padding: 0 10px;
-        font-size: 18px;
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
+        top: -12px;
+        left: 24px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        padding: 8px 12px;
+        font-size: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
     }
 
     .ai-response h3 {
-        color: #0066cc;
-        margin-top: 1.5rem;
-        margin-bottom: 1rem;
-        font-size: 1.25rem;
+        color: #6366f1;
+        margin-top: 2rem;
+        margin-bottom: 1.25rem;
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+
+    .ai-response h3:first-child {
+        margin-top: 0;
     }
 
     .ai-response hr {
-        margin: 2rem 0;
+        margin: 2.5rem 0;
         border: none;
-        border-top: 2px solid #e5e7eb;
+        height: 1px;
+        background: linear-gradient(to right, transparent, #e5e7eb, transparent);
     }
 
     .ai-response p {
-        margin-bottom: 1rem;
+        margin-bottom: 1.25rem;
+        color: #374151;
     }
 
     .ai-response strong {
-        color: #1f2937;
+        color: #111827;
         font-weight: 600;
     }
 
+    .ai-response ul, .ai-response ol {
+        margin: 1.25rem 0;
+        padding-left: 1.75rem;
+    }
+
+    .ai-response li {
+        margin-bottom: 0.75rem;
+        color: #374151;
+    }
+
+    /* User Message - ChatGPT inspired friendly bubbles */
     .user-message {
-        background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
         color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 18px 18px 4px 18px;
-        margin: 1rem 0 1rem auto;
-        max-width: 75%;
-        box-shadow: 0 4px 12px rgba(0,102,204,0.3);
-        font-weight: 500;
-    }
-
-    .login-container {
-        max-width: 500px;
-        margin: 3rem auto;
-        padding: 2rem;
-        background: white;
+        padding: 1.25rem 1.75rem;
         border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-        border: 1px solid #e5e7eb;
+        margin: 2rem 0;
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+        font-weight: 500;
+        font-size: 1.05rem;
+        animation: fadeIn 0.3s ease-in;
     }
 
+    /* Login Container - Microsoft Copilot inspired clean forms */
+    .login-container {
+        max-width: 440px;
+        margin: 4rem auto;
+        padding: 3rem;
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.08);
+        border: 1px solid #f3f4f6;
+    }
+
+    /* Status Indicators - Google-inspired subtle colors */
     .status-indicator {
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 14px;
         font-weight: 500;
+        font-size: 0.95rem;
+        backdrop-filter: blur(10px);
     }
 
     .status-success {
         background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
         color: #065f46;
-        border: 1px solid #10b981;
+        border: 1px solid #6ee7b7;
     }
 
     .status-warning {
         background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         color: #92400e;
-        border: 1px solid #f59e0b;
+        border: 1px solid #fbbf24;
+    }
+
+    /* Buttons - Grok-inspired bold actions */
+    .stButton > button {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 1rem;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    /* Input Fields - Notion-inspired clean inputs */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        border: 1.5px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.875rem 1rem;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    /* Scrollbar - macOS inspired */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #94a3b8, #64748b);
     }
 </style>
 """, unsafe_allow_html=True)
