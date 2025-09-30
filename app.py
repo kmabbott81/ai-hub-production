@@ -72,19 +72,6 @@ api_status = {
 
 production_engine_available = any(api_status.values())
 
-# Debug info (will be removed after verification)
-debug_info = {
-    'openai_key_exists': bool(openai_key),
-    'anthropic_key_exists': bool(anthropic_key),
-    'perplexity_key_exists': bool(perplexity_key),
-    'openai_lib': OPENAI_AVAILABLE,
-    'anthropic_lib': ANTHROPIC_AVAILABLE,
-    'requests_lib': REQUESTS_AVAILABLE,
-    'env_vars_present': [key for key in os.environ.keys() if 'API' in key.upper()],
-    'port_var': os.getenv('PORT', 'not set'),
-    'python_unbuffered': os.getenv('PYTHONUNBUFFERED', 'not set')
-}
-
 # Simple authentication
 USERS = {
     "demo": "demo123",
@@ -535,11 +522,6 @@ with st.sidebar:
         if st.button("👤 Login", use_container_width=True):
             st.session_state.show_login = True
             st.rerun()
-
-    # Debug info
-    st.markdown("---")
-    st.markdown("### 🔍 Debug Info")
-    st.json(debug_info)
 
 # Login Modal (only if show_login is True)
 if st.session_state.show_login and not st.session_state.authenticated:
