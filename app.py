@@ -105,6 +105,56 @@ if 'messages' not in st.session_state:
 if 'show_login' not in st.session_state:
     st.session_state.show_login = False
 
+# Query type detection and specialized prompts
+def detect_query_type(query: str) -> str:
+    """Detect the type of query to optimize agent prompts"""
+    query_lower = query.lower()
+
+    if any(term in query_lower for term in ['business idea', 'startup', 'profitable', 'business model']):
+        return 'business_strategy'
+    elif any(term in query_lower for term in ['technical', 'architecture', 'code', 'implementation', 'software']):
+        return 'technical_analysis'
+    elif any(term in query_lower for term in ['market', 'industry', 'trend', 'competitor', 'analysis']):
+        return 'market_research'
+    elif any(term in query_lower for term in ['invest', 'financial', 'valuation', 'roi', 'profit']):
+        return 'financial_analysis'
+    else:
+        return 'general'
+
+def get_specialized_prompts(query: str, query_type: str) -> dict:
+    """Generate specialized prompts for each agent based on query type"""
+
+    if query_type == 'business_strategy':
+        return {
+            'perplexity': f"Research current market data, growth rates, successful case studies, and industry statistics for: {query}. Include specific numbers, market sizes, and credible sources.",
+            'claude': f"Provide comprehensive business analysis including: 1) Implementation timeline with monthly breakdown, 2) Detailed cost analysis and profit projections, 3) Scaling strategies from 0-10 years, 4) Risk assessment and mitigation strategies for: {query}",
+            'gpt': f"Generate 3 creative variations and innovative approaches to: {query}. For each, explain: unique positioning, growth hacks, and competitive advantages."
+        }
+    elif query_type == 'technical_analysis':
+        return {
+            'perplexity': f"Research best practices, technology stack trends, performance benchmarks, and case studies for: {query}",
+            'claude': f"Provide detailed technical analysis including: architecture design, scalability considerations, security implications, and implementation roadmap for: {query}",
+            'gpt': f"Suggest innovative technical approaches, alternative architectures, and creative solutions for: {query}"
+        }
+    elif query_type == 'market_research':
+        return {
+            'perplexity': f"Conduct comprehensive market research including: market size, growth trends, key players, competitive landscape, and recent developments for: {query}",
+            'claude': f"Analyze market dynamics, competitive positioning, barriers to entry, and strategic recommendations for: {query}",
+            'gpt': f"Identify underserved niches, emerging opportunities, and contrarian perspectives on: {query}"
+        }
+    elif query_type == 'financial_analysis':
+        return {
+            'perplexity': f"Research financial data, valuation metrics, industry benchmarks, and investment trends for: {query}",
+            'claude': f"Provide detailed financial analysis including: valuation models, ROI projections, risk-adjusted returns, and scenario analysis for: {query}",
+            'gpt': f"Suggest creative financial strategies, alternative investment approaches, and hidden value opportunities for: {query}"
+        }
+    else:
+        return {
+            'perplexity': f"Research and analyze: {query}",
+            'claude': f"Provide deep analysis and insights for: {query}",
+            'gpt': f"Provide creative insights and alternative perspectives on: {query}"
+        }
+
 # Real multi-agent collaboration function
 async def real_multi_agent_collaboration(query: str, mode: str = "production"):
     """Real multi-agent collaboration using available APIs with parallel processing"""
@@ -115,6 +165,10 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
     responses = []
     agent_errors = []
     total_cost = 0.0
+
+    # Detect query type and get specialized prompts
+    query_type = detect_query_type(query)
+    specialized_prompts = get_specialized_prompts(query, query_type)
 
     # Helper function to call agents in parallel (using threading for sync APIs)
     import concurrent.futures
@@ -129,7 +183,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             }
             payload = {
                 "model": "sonar-pro",
-                "messages": [{"role": "user", "content": f"Research and analyze: {query}"}],
+                "messages": [{"role": "user", "content": specialized_prompts['perplexity']}],
                 "max_tokens": 600,  # Reduced for speed
                 "temperature": 0.2
             }
@@ -168,8 +222,8 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
                 model="claude-sonnet-4-5-20250929",  # Latest Claude Sonnet 4.5 (Sept 2025)
-                max_tokens=600,  # Reduced for speed
-                messages=[{"role": "user", "content": f"Provide deep analysis and insights for: {query}"}]
+                max_tokens=800,  # Increased for detailed analysis
+                messages=[{"role": "user", "content": specialized_prompts['claude']}]
             )
             return {
                 'agent': 'Claude Analysis Agent',
@@ -187,16 +241,16 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
         try:
             client = openai.OpenAI(api_key=get_api_key("openai"))
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": f"Provide creative insights and alternative perspectives on: {query}"}],
-                max_tokens=600,  # Reduced for speed
+                model="gpt-4o",  # Upgraded from gpt-4o-mini for 10x better reasoning
+                messages=[{"role": "user", "content": specialized_prompts['gpt']}],
+                max_tokens=800,  # Increased for GPT-4o's better output
                 temperature=0.7
             )
             return {
                 'agent': 'GPT Creative Agent',
-                'model': 'gpt-4o-mini',
+                'model': 'gpt-4o',
                 'response': f"**Creative Perspective:** {response.choices[0].message.content}",
-                'cost': 0.001
+                'cost': 0.015  # GPT-4o costs more but worth it
             }
         except Exception as e:
             agent_errors.append(f"OpenAI: {str(e)}")
