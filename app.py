@@ -13,6 +13,17 @@ import tempfile
 import shutil
 from typing import List, Dict, Optional
 import mimetypes
+import pyotp
+import qrcode
+from io import BytesIO
+
+# Import database module
+try:
+    from database import Database
+    DATABASE_AVAILABLE = True
+except Exception as e:
+    print(f"Database not available: {e}")
+    DATABASE_AVAILABLE = False
 
 # Page config
 st.set_page_config(
@@ -94,22 +105,29 @@ api_status = {
 
 production_engine_available = any(api_status.values())
 
-# Simple authentication
-USERS = {
-    "demo": "demo123",
-    "admin": "admin123",
-    "kyle": "kyle123"
-}
+# Initialize database
+if 'db' not in st.session_state and DATABASE_AVAILABLE:
+    st.session_state.db = Database()
+else:
+    st.session_state.db = None
 
 # Initialize session state
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
-if 'username' not in st.session_state:
-    st.session_state.username = None
+if 'user' not in st.session_state:
+    st.session_state.user = None
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'show_login' not in st.session_state:
-    st.session_state.show_login = False
+    st.session_state.show_login = True
+if 'show_register' not in st.session_state:
+    st.session_state.show_register = False
+if 'mfa_pending' not in st.session_state:
+    st.session_state.mfa_pending = False
+if 'mfa_temp_user' not in st.session_state:
+    st.session_state.mfa_temp_user = None
 if 'chat_threads' not in st.session_state:
     st.session_state.chat_threads = []
 if 'current_thread_id' not in st.session_state:
@@ -1020,9 +1038,143 @@ def scan_folder(folder_path: str, extensions: List[str] = None, max_files: int =
 
     return files, error_msg
 
+# Auth UI - Login/Register
+if not st.session_state.authenticated:
+    # Center the auth forms
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("# ⬡ AI Hub")
+        st.markdown("Multi-Agent AI Collaboration")
+        st.markdown("")
+
+        # MFA verification screen
+        if st.session_state.mfa_pending and st.session_state.mfa_temp_user:
+            st.markdown("### Two-Factor Authentication")
+            st.caption("Enter the 6-digit code from your authenticator app")
+
+            mfa_code = st.text_input("6-digit code", max_chars=6, key="mfa_code")
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Verify", type="primary", use_container_width=True):
+                    if st.session_state.db and st.session_state.db.verify_mfa(
+                        st.session_state.mfa_temp_user['id'], mfa_code
+                    ):
+                        st.session_state.authenticated = True
+                        st.session_state.user = st.session_state.mfa_temp_user
+                        st.session_state.user_id = st.session_state.mfa_temp_user['id']
+                        st.session_state.mfa_pending = False
+                        st.session_state.mfa_temp_user = None
+                        st.success("Login successful!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid code")
+            with col_b:
+                if st.button("Cancel", use_container_width=True):
+                    st.session_state.mfa_pending = False
+                    st.session_state.mfa_temp_user = None
+                    st.rerun()
+
+        # Registration screen
+        elif st.session_state.show_register:
+            st.markdown("### Create Account")
+
+            reg_username = st.text_input("Username", placeholder="Choose a username", key="reg_username")
+            reg_email = st.text_input("Email", placeholder="your@email.com", key="reg_email")
+            reg_password = st.text_input("Password", type="password", placeholder="Create a password", key="reg_password")
+            reg_password2 = st.text_input("Confirm Password", type="password", placeholder="Confirm password", key="reg_password2")
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Create Account", type="primary", use_container_width=True):
+                    if not reg_username or not reg_email or not reg_password:
+                        st.error("All fields are required")
+                    elif reg_password != reg_password2:
+                        st.error("Passwords don't match")
+                    elif len(reg_password) < 8:
+                        st.error("Password must be at least 8 characters")
+                    elif st.session_state.db:
+                        user_id = st.session_state.db.create_user(reg_username, reg_email, reg_password)
+                        if user_id:
+                            st.success("Account created! Please log in.")
+                            st.session_state.show_register = False
+                            st.session_state.show_login = True
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Username or email already exists")
+                    else:
+                        st.error("Database not available")
+
+            with col_b:
+                if st.button("Back to Login", use_container_width=True):
+                    st.session_state.show_register = False
+                    st.session_state.show_login = True
+                    st.rerun()
+
+        # Login screen
+        elif st.session_state.show_login:
+            st.markdown("### Login")
+
+            login_username = st.text_input("Username", placeholder="Enter username", key="login_username")
+            login_password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Login", type="primary", use_container_width=True):
+                    if st.session_state.db:
+                        user = st.session_state.db.verify_user(login_username, login_password)
+                        if user:
+                            # Check if MFA enabled
+                            if user.get('mfa_enabled'):
+                                st.session_state.mfa_pending = True
+                                st.session_state.mfa_temp_user = user
+                                st.rerun()
+                            else:
+                                st.session_state.authenticated = True
+                                st.session_state.user = user
+                                st.session_state.user_id = user['id']
+                                st.success(f"Welcome back, {user['username']}!")
+                                time.sleep(1)
+                                st.rerun()
+                        else:
+                            st.error("Invalid username or password")
+                    else:
+                        st.error("Database not available")
+
+            with col_b:
+                if st.button("Create Account", use_container_width=True):
+                    st.session_state.show_login = False
+                    st.session_state.show_register = True
+                    st.rerun()
+
+            if not DATABASE_AVAILABLE:
+                st.warning("⚠️ Database not configured. Please set DATABASE_URL in Railway environment.")
+
+    st.stop()
+
+# Load user data from database
+if st.session_state.authenticated and st.session_state.db and st.session_state.user_id:
+    # Load projects from database
+    if 'projects_loaded' not in st.session_state:
+        db_projects = st.session_state.db.get_user_projects(st.session_state.user_id)
+        st.session_state.projects = db_projects
+        st.session_state.projects_loaded = True
+
+    # Load threads from database
+    if 'threads_loaded' not in st.session_state:
+        db_threads = st.session_state.db.get_user_threads(st.session_state.user_id)
+        st.session_state.chat_threads = db_threads
+        st.session_state.threads_loaded = True
+
 # Initialize first thread if none exist
-if len(st.session_state.chat_threads) == 0:
-    create_new_thread()
+if st.session_state.authenticated and len(st.session_state.chat_threads) == 0:
+    if st.session_state.db and st.session_state.user_id:
+        thread_id = st.session_state.db.create_thread(st.session_state.user_id, "New chat")
+        if thread_id:
+            st.session_state.chat_threads = st.session_state.db.get_user_threads(st.session_state.user_id)
+            if st.session_state.chat_threads:
+                st.session_state.current_thread_id = st.session_state.chat_threads[0]['id']
 
 # Sidebar - Projects and Chat history
 with st.sidebar:
