@@ -927,40 +927,98 @@ def get_project_context():
 
     return context
 
-def scan_folder(folder_path: str, extensions: List[str] = None) -> List[Dict]:
-    """Scan a folder and read text files"""
+def scan_folder(folder_path: str, extensions: List[str] = None, max_files: int = 100) -> tuple[List[Dict], str]:
+    """Scan a folder and read text files
+
+    Returns: (files_list, error_message)
+    """
     if not extensions:
-        extensions = ['.txt', '.md', '.py', '.js', '.json', '.csv', '.html', '.css', '.xml', '.java', '.cpp', '.c']
+        extensions = ['.txt', '.md', '.py', '.js', '.json', '.csv', '.html', '.css', '.xml', '.java', '.cpp', '.c', '.pdf', '.docx']
 
     files = []
+    error_msg = ""
+
     try:
+        # Normalize path and handle spaces
+        folder_path = folder_path.strip().strip('"').strip("'")
         path = Path(folder_path)
-        if not path.exists() or not path.is_dir():
-            return []
+
+        # Check if path exists
+        if not path.exists():
+            return [], f"Path does not exist: {folder_path}"
+
+        if not path.is_dir():
+            return [], f"Path is not a directory: {folder_path}"
+
+        # Check if we can access the directory
+        try:
+            list(path.iterdir())
+        except PermissionError:
+            return [], f"Permission denied: Cannot access {folder_path}"
+
+        # Scan directory
+        file_count = 0
+        skipped_large = 0
+        skipped_binary = 0
 
         for file_path in path.rglob('*'):
-            if file_path.is_file() and file_path.suffix in extensions:
+            if file_count >= max_files:
+                error_msg = f"Reached max file limit ({max_files}). Only first {max_files} files loaded."
+                break
+
+            if file_path.is_file():
                 try:
-                    # Skip large files (>1MB)
-                    if file_path.stat().st_size > 1024 * 1024:
+                    # Check file size first
+                    file_size = file_path.stat().st_size
+
+                    # Skip very large files (>1MB)
+                    if file_size > 1024 * 1024:
+                        skipped_large += 1
                         continue
 
-                    content = file_path.read_text(encoding='utf-8', errors='ignore')
+                    # Check extension
+                    if file_path.suffix.lower() not in extensions:
+                        continue
+
+                    # Try to read as text
+                    try:
+                        content = file_path.read_text(encoding='utf-8', errors='ignore')
+                    except Exception:
+                        try:
+                            content = file_path.read_text(encoding='latin-1', errors='ignore')
+                        except Exception:
+                            skipped_binary += 1
+                            continue
+
                     files.append({
                         'name': file_path.name,
                         'path': str(file_path),
+                        'relative_path': str(file_path.relative_to(path)),
                         'type': mimetypes.guess_type(str(file_path))[0] or 'text/plain',
-                        'size': file_path.stat().st_size,
+                        'size': file_size,
                         'content': content,
                         'uploaded_at': datetime.now()
                     })
+                    file_count += 1
+
+                except PermissionError:
+                    continue
                 except Exception as e:
                     continue
 
-    except Exception as e:
-        pass
+        if not files and not error_msg:
+            extensions_str = ', '.join(extensions)
+            error_msg = f"No readable files found. Supported extensions: {extensions_str}"
 
-    return files
+        if skipped_large > 0:
+            error_msg += f" | Skipped {skipped_large} large files (>1MB)"
+        if skipped_binary > 0:
+            error_msg += f" | Skipped {skipped_binary} binary files"
+
+    except Exception as e:
+        return [], f"Error scanning folder: {str(e)}"
+
+    return files, error_msg
 
 # Initialize first thread if none exist
 if len(st.session_state.chat_threads) == 0:
@@ -1028,21 +1086,28 @@ with st.sidebar:
 
         # Folder linking
         with st.expander("🔗 Link folder", expanded=False):
+            st.caption("Supported: .txt, .md, .py, .js, .json, .csv, .html, .css, .xml, .java, .cpp, .c, .pdf, .docx")
             folder_path = st.text_input("Folder path", placeholder="C:/path/to/folder", key="folder_path_input")
             if st.button("Scan folder", key="scan_folder_btn"):
                 if folder_path:
-                    scanned_files = scan_folder(folder_path)
-                    if scanned_files:
-                        for file_info in scanned_files:
-                            # Check if file already exists
-                            existing = any(f.get('path') == file_info['path'] for f in current_project['files'])
-                            if not existing:
-                                add_file_to_project(current_project['id'], file_info)
-                        current_project['folder_path'] = folder_path
-                        st.success(f"Added {len(scanned_files)} files from folder")
-                        st.rerun()
-                    else:
-                        st.error("No files found or invalid path")
+                    with st.spinner("Scanning folder..."):
+                        scanned_files, error_msg = scan_folder(folder_path)
+                        if scanned_files:
+                            new_files = 0
+                            for file_info in scanned_files:
+                                # Check if file already exists
+                                existing = any(f.get('path') == file_info['path'] for f in current_project['files'])
+                                if not existing:
+                                    add_file_to_project(current_project['id'], file_info)
+                                    new_files += 1
+                            current_project['folder_path'] = folder_path
+                            success_msg = f"Added {new_files} files"
+                            if error_msg:
+                                success_msg += f" | {error_msg}"
+                            st.success(success_msg)
+                            st.rerun()
+                        else:
+                            st.error(error_msg if error_msg else "No files found")
                 else:
                     st.error("Please enter a folder path")
 
