@@ -336,6 +336,62 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
         total_cost += analysis_result['cost']
         analysis_output = analysis_result['response']
 
+        # STAGE 2.5: Self-Critique Loop (Claude reviews its own analysis)
+        if api_status.get('anthropic') and analysis_output:
+            try:
+                api_key = get_api_key("anthropic")
+                if api_key:
+                    client = anthropic.Anthropic(api_key=api_key)
+
+                    # Critique phase
+                    critique_prompt = f"""Review the following analysis for logical flaws, missing considerations, unsupported claims, or gaps in reasoning:
+
+{analysis_output}
+
+Provide constructive criticism:
+1. What logical flaws or weak arguments exist?
+2. What important considerations are missing?
+3. What claims need better support or evidence?
+4. What gaps in the reasoning chain should be addressed?
+
+Be specific and actionable."""
+
+                    critique_response = client.messages.create(
+                        model="claude-sonnet-4-5-20250929",
+                        max_tokens=600,
+                        messages=[{"role": "user", "content": critique_prompt}]
+                    )
+                    total_cost += 0.003
+
+                    critique_text = critique_response.content[0].text
+
+                    # STAGE 2.6: Refinement (Claude revises based on critique)
+                    refinement_prompt = f"""Based on this critique of your analysis, revise and improve it:
+
+ORIGINAL ANALYSIS:
+{analysis_output}
+
+CRITIQUE:
+{critique_text}
+
+Provide a refined analysis that addresses the identified issues while maintaining strengths. Focus on filling gaps and strengthening weak points."""
+
+                    refinement_response = client.messages.create(
+                        model="claude-sonnet-4-5-20250929",
+                        max_tokens=1000,
+                        messages=[{"role": "user", "content": refinement_prompt}]
+                    )
+                    total_cost += 0.003
+
+                    # Replace original analysis with refined version
+                    analysis_output = f"**Deep Analysis (Refined):** {refinement_response.content[0].text}"
+
+                    # Update responses list to replace original with refined
+                    responses[-1] = analysis_output
+
+            except Exception as e:
+                agent_errors.append(f"Self-Critique: {str(e)}")
+
     # STAGE 3: Creative Alternatives (GPT uses Research + Analysis)
     creative_context = None
     if research_output and analysis_output:
