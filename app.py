@@ -155,9 +155,9 @@ def get_specialized_prompts(query: str, query_type: str) -> dict:
             'gpt': f"Provide creative insights and alternative perspectives on: {query}"
         }
 
-# Real multi-agent collaboration function
+# Real multi-agent collaboration function with sequential reasoning
 async def real_multi_agent_collaboration(query: str, mode: str = "production"):
-    """Real multi-agent collaboration using available APIs with parallel processing"""
+    """Real multi-agent collaboration using sequential reasoning chain for exponentially better output"""
 
     start_time = time.time()
     agents_used = []
@@ -170,8 +170,10 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
     query_type = detect_query_type(query)
     specialized_prompts = get_specialized_prompts(query, query_type)
 
-    # Helper function to call agents in parallel (using threading for sync APIs)
-    import concurrent.futures
+    # Store outputs from each stage for next stage to use
+    research_output = None
+    analysis_output = None
+    creative_output = None
 
     def call_perplexity_sync():
         if not api_status.get('perplexity'):
@@ -205,7 +207,7 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"Perplexity: {str(e)}")
         return None
 
-    def call_claude_sync():
+    def call_claude_sync(context=None):
         if not api_status.get('anthropic'):
             return None
         try:
@@ -219,11 +221,17 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
                 agent_errors.append(f"Claude: API key format invalid (should start with 'sk-', got '{api_key[:5]}...')")
                 return None
 
+            # Build prompt with context from previous agents
+            if context:
+                enhanced_prompt = f"{specialized_prompts['claude']}\n\n**Context from previous analysis:**\n{context}"
+            else:
+                enhanced_prompt = specialized_prompts['claude']
+
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
                 model="claude-sonnet-4-5-20250929",  # Latest Claude Sonnet 4.5 (Sept 2025)
-                max_tokens=800,  # Increased for detailed analysis
-                messages=[{"role": "user", "content": specialized_prompts['claude']}]
+                max_tokens=1000,  # Increased for analysis with context
+                messages=[{"role": "user", "content": enhanced_prompt}]
             )
             return {
                 'agent': 'Claude Analysis Agent',
@@ -235,15 +243,21 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"Claude: {str(e)}")
         return None
 
-    def call_openai_sync():
+    def call_openai_sync(context=None):
         if not api_status.get('openai'):
             return None
         try:
+            # Build prompt with context from previous agents
+            if context:
+                enhanced_prompt = f"{specialized_prompts['gpt']}\n\n**Context from previous analysis:**\n{context}"
+            else:
+                enhanced_prompt = specialized_prompts['gpt']
+
             client = openai.OpenAI(api_key=get_api_key("openai"))
             response = client.chat.completions.create(
                 model="gpt-4o",  # Upgraded from gpt-4o-mini for 10x better reasoning
-                messages=[{"role": "user", "content": specialized_prompts['gpt']}],
-                max_tokens=800,  # Increased for GPT-4o's better output
+                messages=[{"role": "user", "content": enhanced_prompt}],
+                max_tokens=1000,  # Increased for GPT-4o with context
                 temperature=0.7
             )
             return {
@@ -300,23 +314,84 @@ async def real_multi_agent_collaboration(query: str, mode: str = "production"):
             agent_errors.append(f"Gemini: {str(e)}")
         return None
 
-    # Execute all agents in TRUE parallel using ThreadPoolExecutor (faster for sync APIs)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures = [
-            executor.submit(call_perplexity_sync),
-            executor.submit(call_claude_sync),
-            executor.submit(call_openai_sync),
-            executor.submit(call_gemini_sync)
-        ]
-        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+    # SEQUENTIAL REASONING CHAIN for exponentially better quality
+    # Each agent builds upon the previous agent's output
 
-    # Process results from parallel execution
-    for result in results:
-        if result and isinstance(result, dict):
-            agents_used.append(result['agent'])
-            models_used.append(result['model'])
-            responses.append(result['response'])
-            total_cost += result['cost']
+    # STAGE 1: Research Foundation (Perplexity)
+    research_result = call_perplexity_sync()
+    if research_result:
+        agents_used.append(research_result['agent'])
+        models_used.append(research_result['model'])
+        responses.append(research_result['response'])
+        total_cost += research_result['cost']
+        research_output = research_result['response']
+
+    # STAGE 2: Deep Analysis (Claude uses Research)
+    analysis_context = f"{research_output}" if research_output else None
+    analysis_result = call_claude_sync(context=analysis_context)
+    if analysis_result:
+        agents_used.append(analysis_result['agent'])
+        models_used.append(analysis_result['model'])
+        responses.append(analysis_result['response'])
+        total_cost += analysis_result['cost']
+        analysis_output = analysis_result['response']
+
+    # STAGE 3: Creative Alternatives (GPT uses Research + Analysis)
+    creative_context = None
+    if research_output and analysis_output:
+        creative_context = f"RESEARCH:\n{research_output}\n\nANALYSIS:\n{analysis_output}"
+    elif research_output:
+        creative_context = research_output
+    elif analysis_output:
+        creative_context = analysis_output
+
+    creative_result = call_openai_sync(context=creative_context)
+    if creative_result:
+        agents_used.append(creative_result['agent'])
+        models_used.append(creative_result['model'])
+        responses.append(creative_result['response'])
+        total_cost += creative_result['cost']
+        creative_output = creative_result['response']
+
+    # STAGE 4: Final Synthesis (Claude synthesizes everything)
+    if len(responses) >= 2:
+        synthesis_context = f"RESEARCH:\n{research_output}\n\nANALYSIS:\n{analysis_output}\n\nCREATIVE ALTERNATIVES:\n{creative_output}"
+
+        # Call Claude again for final synthesis
+        if api_status.get('anthropic'):
+            try:
+                api_key = get_api_key("anthropic")
+                if api_key:
+                    client = anthropic.Anthropic(api_key=api_key)
+                    synthesis_prompt = f"""Synthesize the following analyses into actionable recommendations and key insights for: {query}
+
+{synthesis_context}
+
+Provide:
+1. Top 3 recommendations prioritized by impact
+2. Key insights synthesized from all perspectives
+3. Critical success factors
+4. Next steps and timeline"""
+
+                    response = client.messages.create(
+                        model="claude-sonnet-4-5-20250929",
+                        max_tokens=800,
+                        messages=[{"role": "user", "content": synthesis_prompt}]
+                    )
+
+                    synthesis_result = {
+                        'agent': 'Claude Synthesis Agent',
+                        'model': 'claude-sonnet-4.5',
+                        'response': f"**Strategic Synthesis:** {response.content[0].text}",
+                        'cost': 0.003
+                    }
+
+                    agents_used.append(synthesis_result['agent'])
+                    models_used.append(synthesis_result['model'])
+                    responses.append(synthesis_result['response'])
+                    total_cost += synthesis_result['cost']
+            except Exception as e:
+                agent_errors.append(f"Synthesis: {str(e)}")
 
     # Add error information if any agents failed
     if agent_errors:
