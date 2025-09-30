@@ -35,14 +35,18 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
-# Get API keys from Streamlit secrets or environment
+# Get API keys from environment variables (Railway) or Streamlit secrets
 def get_api_key(service):
+    # Try environment variables first (Railway deployment)
+    env_key = os.getenv(f"{service.upper()}_API_KEY")
+    if env_key:
+        return env_key
+
+    # Fall back to Streamlit secrets (alternative deployment)
     try:
-        # Try Streamlit secrets first (for cloud deployment)
         return st.secrets.get(f"{service.upper()}_API_KEY")
     except:
-        # Fall back to environment variables (for local)
-        return os.getenv(f"{service.upper()}_API_KEY")
+        return None
 
 # Check API availability
 api_status = {
@@ -486,7 +490,7 @@ if production_engine_available:
 else:
     st.markdown("""
     <div class="status-indicator status-warning">
-        ⚠️ <strong>Demo Mode:</strong> Configure API keys in Streamlit secrets for full functionality
+        ⚠️ <strong>Demo Mode:</strong> API keys not configured. Add API keys in Railway environment variables for full functionality.
     </div>
     """, unsafe_allow_html=True)
 
