@@ -11,9 +11,10 @@ from datetime import datetime
 
 # Page config
 st.set_page_config(
-    page_title="AI Hub - Multi-Agent AI Collaboration",
-    page_icon="🚀",
-    layout="wide"
+    page_title="AI Hub",
+    page_icon="⬡",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # Import AI clients with error handling
@@ -104,6 +105,12 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'show_login' not in st.session_state:
     st.session_state.show_login = False
+if 'chat_threads' not in st.session_state:
+    st.session_state.chat_threads = []
+if 'current_thread_id' not in st.session_state:
+    st.session_state.current_thread_id = None
+if 'thread_counter' not in st.session_state:
+    st.session_state.thread_counter = 0
 
 # Query type detection and specialized prompts
 def detect_query_type(query: str) -> str:
@@ -482,320 +489,280 @@ Provide:
         }
     }
 
-# Modern CSS - Inspired by best-in-class AI platforms
+# Minimalist CSS - Early Google/OpenAI inspired
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
-    /* Global Styles - Notion-inspired clean spacing */
-    * {
-        transition: all 0.2s ease;
+    /* Root variables - Low glare color palette */
+    :root {
+        --bg-primary: #f7f7f8;
+        --bg-secondary: #ffffff;
+        --text-primary: #202123;
+        --text-secondary: #6e6e80;
+        --border-light: #e5e5e5;
+        --accent-primary: #19c37d;
+        --accent-hover: #1a7f5a;
     }
 
+    /* Global reset */
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Main container */
     .main {
-        background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+        background: var(--bg-primary);
         padding: 0;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        line-height: 1.6;
     }
 
     .block-container {
-        padding-top: 3rem;
-        padding-bottom: 3rem;
-        max-width: 900px;
+        padding: 2rem 1rem;
+        max-width: 48rem;
     }
 
-    /* Header - Claude/ChatGPT inspired minimalist elegance */
-    .header {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-        padding: 3rem 2rem;
-        color: white;
-        margin: -3rem -1rem 3rem -1rem;
-        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
-        text-align: center;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-light);
     }
 
-    .header h1 {
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1rem;
+    }
+
+    /* Hide default header */
+    header[data-testid="stHeader"] {
+        display: none;
+    }
+
+    /* Simple top bar */
+    .top-bar {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-light);
+        padding: 0.75rem 1rem;
+        margin: -2rem -1rem 2rem -1rem;
+    }
+
+    .top-bar h1 {
         margin: 0;
-        font-size: 2.75rem;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-        background: linear-gradient(to right, #ffffff, #e0e7ff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .header p {
-        margin: 1rem 0 0 0;
-        opacity: 0.95;
-        font-size: 1.15rem;
-        font-weight: 400;
-        letter-spacing: 0.01em;
-    }
-
-    /* AI Response - Perplexity-inspired clean cards with better readability */
-    .ai-response {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 2.5rem;
-        margin: 2rem 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
-        position: relative;
-        line-height: 1.8;
         font-size: 1rem;
-        color: #1f2937;
-        animation: fadeIn 0.3s ease-in;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .ai-response::before {
-        content: "✨";
-        position: absolute;
-        top: -12px;
-        left: 24px;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        padding: 8px 12px;
-        font-size: 16px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-    }
-
-    .ai-response h3 {
-        color: #6366f1;
-        margin-top: 2rem;
-        margin-bottom: 1.25rem;
-        font-size: 1.35rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-    }
-
-    .ai-response h3:first-child {
-        margin-top: 0;
-    }
-
-    .ai-response hr {
-        margin: 2.5rem 0;
-        border: none;
-        height: 1px;
-        background: linear-gradient(to right, transparent, #e5e7eb, transparent);
-    }
-
-    .ai-response p {
-        margin-bottom: 1.25rem;
-        color: #374151;
-    }
-
-    .ai-response strong {
-        color: #111827;
         font-weight: 600;
+        color: var(--text-primary);
+        letter-spacing: -0.01em;
     }
 
-    .ai-response ul, .ai-response ol {
-        margin: 1.25rem 0;
-        padding-left: 1.75rem;
+    /* Chat thread item */
+    .thread-item {
+        padding: 0.5rem 0.75rem;
+        margin: 0.25rem 0;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: background 0.15s;
+        border: 1px solid transparent;
     }
 
-    .ai-response li {
-        margin-bottom: 0.75rem;
-        color: #374151;
+    .thread-item:hover {
+        background: var(--bg-primary);
     }
 
-    /* User Message - ChatGPT inspired friendly bubbles */
-    .user-message {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        color: white;
-        padding: 1.25rem 1.75rem;
-        border-radius: 20px;
-        margin: 2rem 0;
-        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
-        font-weight: 500;
-        font-size: 1.05rem;
-        animation: fadeIn 0.3s ease-in;
+    .thread-item.active {
+        background: var(--bg-primary);
+        border-color: var(--border-light);
     }
 
-    /* Login Container - Microsoft Copilot inspired clean forms */
-    .login-container {
-        max-width: 440px;
-        margin: 4rem auto;
-        padding: 3rem;
-        background: white;
-        border-radius: 24px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.08);
-        border: 1px solid #f3f4f6;
-    }
-
-    /* Status Indicators - Google-inspired subtle colors */
-    .status-indicator {
-        padding: 1.25rem 1.5rem;
+    /* Message container */
+    .message {
         margin: 1.5rem 0;
-        border-radius: 14px;
-        font-weight: 500;
-        font-size: 0.95rem;
-        backdrop-filter: blur(10px);
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        line-height: 1.6;
     }
 
-    .status-success {
-        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-        color: #065f46;
-        border: 1px solid #6ee7b7;
+    .user-message {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-light);
+        color: var(--text-primary);
     }
 
-    .status-warning {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        color: #92400e;
-        border: 1px solid #fbbf24;
+    .ai-message {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-light);
+        color: var(--text-primary);
     }
 
-    /* Buttons - Grok-inspired bold actions */
+    .ai-message h2, .ai-message h3 {
+        color: var(--text-primary);
+        font-weight: 600;
+        margin: 1rem 0 0.5rem 0;
+    }
+
+    .ai-message code {
+        background: var(--bg-primary);
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        background: var(--accent-primary);
         color: white;
         border: none;
-        border-radius: 12px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        font-size: 1rem;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-        transition: all 0.2s ease;
+        border-radius: 0.375rem;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+        transition: background 0.15s;
     }
 
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        background: var(--accent-hover);
     }
 
-    /* Input Fields - Notion-inspired clean inputs */
+    /* Input fields */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        border: 1.5px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 0.875rem 1rem;
-        font-size: 1rem;
-        transition: all 0.2s ease;
+        border: 1px solid var(--border-light);
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
     }
 
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        border-color: var(--accent-primary);
+        outline: none;
+        box-shadow: 0 0 0 1px var(--accent-primary);
     }
 
-    /* Scrollbar - macOS inspired */
+    /* Scrollbar */
     ::-webkit-scrollbar {
-        width: 10px;
+        width: 8px;
     }
 
     ::-webkit-scrollbar-track {
-        background: #f1f5f9;
+        background: var(--bg-primary);
     }
 
     ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #cbd5e1, #94a3b8);
-        border-radius: 10px;
+        background: var(--border-light);
+        border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #94a3b8, #64748b);
+        background: var(--text-secondary);
     }
 
-    /* Floating Login Button */
-    .floating-login-btn {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 50px;
-        box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-        font-weight: 600;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        z-index: 1000;
-        border: none;
-    }
-
-    .floating-login-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 32px rgba(99, 102, 241, 0.5);
-    }
-
-    /* Login Modal */
-    .login-modal {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 2000;
-        max-width: 440px;
-        width: 90%;
-        background: white;
-        border-radius: 24px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        padding: 3rem;
-        animation: slideIn 0.3s ease-out;
-    }
-
-    @keyframes slideIn {
-        from { opacity: 0; transform: translate(-50%, -40%); }
-        to { opacity: 1; transform: translate(-50%, -50%); }
-    }
-
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(4px);
-        z-index: 1999;
+    /* Status indicator */
+    .status-pill {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-light);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.markdown("""
-<div class="header">
-    <h1>🚀 AI Hub</h1>
-    <p>Multi-Agent AI Collaboration Platform</p>
-</div>
-""", unsafe_allow_html=True)
+# Helper functions for chat threads
+def create_new_thread():
+    """Create a new chat thread"""
+    st.session_state.thread_counter += 1
+    thread_id = f"thread_{st.session_state.thread_counter}"
+    thread = {
+        'id': thread_id,
+        'title': 'New chat',
+        'messages': [],
+        'created_at': datetime.now()
+    }
+    st.session_state.chat_threads.append(thread)
+    st.session_state.current_thread_id = thread_id
+    st.session_state.messages = []
+    return thread_id
 
-# API Status Display
-if production_engine_available:
-    available_apis = [k for k, v in api_status.items() if v]
-    st.markdown(f"""
-    <div class="status-indicator status-success">
-        ✅ <strong>Multi-Agent APIs Active:</strong> {', '.join(available_apis).title()}
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div class="status-indicator status-warning">
-        ⚠️ <strong>Demo Mode:</strong> API keys not configured. Add API keys in Railway environment variables for full functionality.
-    </div>
-    """, unsafe_allow_html=True)
+def get_current_thread():
+    """Get the current active thread"""
+    if not st.session_state.current_thread_id and len(st.session_state.chat_threads) > 0:
+        st.session_state.current_thread_id = st.session_state.chat_threads[0]['id']
 
-# Sidebar - Optional Login
+    for thread in st.session_state.chat_threads:
+        if thread['id'] == st.session_state.current_thread_id:
+            return thread
+    return None
+
+def switch_thread(thread_id):
+    """Switch to a different thread"""
+    st.session_state.current_thread_id = thread_id
+    for thread in st.session_state.chat_threads:
+        if thread['id'] == thread_id:
+            st.session_state.messages = thread['messages']
+            break
+
+def update_thread_title(thread_id, first_message):
+    """Update thread title based on first message"""
+    for thread in st.session_state.chat_threads:
+        if thread['id'] == thread_id and thread['title'] == 'New chat':
+            # Use first 50 chars of message as title
+            thread['title'] = first_message[:50] + ('...' if len(first_message) > 50 else '')
+            break
+
+# Initialize first thread if none exist
+if len(st.session_state.chat_threads) == 0:
+    create_new_thread()
+
+# Sidebar - Chat history and controls
 with st.sidebar:
+    # Top bar with logo
+    st.markdown('<div class="top-bar"><h1>⬡ AI Hub</h1></div>', unsafe_allow_html=True)
+
+    # New chat button
+    if st.button("+ New chat", use_container_width=True, type="primary"):
+        create_new_thread()
+        st.rerun()
+
+    st.markdown("---")
+
+    # Chat threads list
+    st.markdown("**Chat History**")
+    for thread in reversed(st.session_state.chat_threads):
+        is_active = thread['id'] == st.session_state.current_thread_id
+        thread_class = "thread-item active" if is_active else "thread-item"
+
+        if st.button(
+            thread['title'],
+            key=f"thread_{thread['id']}",
+            use_container_width=True,
+            type="secondary" if not is_active else "primary"
+        ):
+            switch_thread(thread['id'])
+            st.rerun()
+
+    st.markdown("---")
+
+    # API Status
+    if production_engine_available:
+        available_count = len([k for k, v in api_status.items() if v and k not in ['notion', 'gemini']])
+        st.markdown(f'<div class="status-pill">✓ {available_count} agents active</div>', unsafe_allow_html=True)
+
+    # Login section
+    st.markdown("")
+    st.markdown("")
     if st.session_state.authenticated:
-        st.markdown(f"### 👋 {st.session_state.username}")
-        if st.button("🚪 Logout", use_container_width=True):
+        st.markdown(f"**{st.session_state.username}**")
+        if st.button("Logout", use_container_width=True):
             st.session_state.authenticated = False
             st.session_state.username = None
             st.rerun()
     else:
-        st.markdown("### 🔐 Login (Optional)")
-        if st.button("👤 Login", use_container_width=True):
+        if st.button("Login", use_container_width=True):
             st.session_state.show_login = True
             st.rerun()
 
@@ -803,15 +770,13 @@ with st.sidebar:
 if st.session_state.show_login and not st.session_state.authenticated:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown('<div class="login-modal">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Login to AI Hub")
-
+        st.markdown("### Login to AI Hub")
         username = st.text_input("Username", placeholder="demo, admin, or kyle", key="login_username")
         password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
 
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("🚀 Login", type="primary", use_container_width=True):
+            if st.button("Login", type="primary", use_container_width=True):
                 if username in USERS and USERS[username] == password:
                     st.session_state.authenticated = True
                     st.session_state.username = username
@@ -825,85 +790,84 @@ if st.session_state.show_login and not st.session_state.authenticated:
                 st.session_state.show_login = False
                 st.rerun()
 
-        st.markdown("**Demo Accounts:**")
-        st.code("demo / demo123\nadmin / admin123\nkyle / kyle123")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("**Demo accounts:** demo/demo123, admin/admin123, kyle/kyle123")
 
-# Main AI Chat Interface (Always visible)
-st.markdown("## 🤖 Multi-Agent AI Collaboration")
-
+# Main Chat Interface
 # Display messages
 for msg in st.session_state.messages:
     if msg['role'] == 'user':
-        st.markdown(f'<div class="user-message">{msg["content"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="message user-message">**You**\n\n{msg["content"]}</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="ai-response">{msg["content"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="message ai-message">{msg["content"]}</div>', unsafe_allow_html=True)
 
-# Chat input
-with st.form("chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        user_input = st.text_area("Ask AI anything:", height=100,
-                                placeholder="Try: 'How do I make a paper airplane, the RIGHT way?' or 'Analyze the future of AI technology'")
-    with col2:
-        mode = st.selectbox("Mode", ["Production", "Research", "Fast"],
-                           help="Production: Full collaboration • Research: Research-focused • Fast: Quick response")
+# Chat input at bottom
+st.markdown("")
+st.markdown("")
 
-    if st.form_submit_button("🚀 Start Multi-Agent Collaboration", type="primary"):
-        if user_input:
-            # Add user message
+user_input = st.text_area(
+    "Message AI Hub",
+    height=100,
+    placeholder="Ask anything...",
+    label_visibility="collapsed",
+    key="user_input"
+)
+
+col1, col2 = st.columns([5, 1])
+with col1:
+    submit = st.button("Send", type="primary", use_container_width=True)
+
+if submit and user_input:
+    # Update thread title if first message
+    current_thread = get_current_thread()
+    if current_thread and current_thread['title'] == 'New chat':
+        update_thread_title(current_thread['id'], user_input)
+
+    # Add user message
+    st.session_state.messages.append({
+        'role': 'user',
+        'content': user_input
+    })
+
+    # Save to thread
+    if current_thread:
+        current_thread['messages'] = st.session_state.messages
+
+    # Show processing indicator
+    with st.spinner("Thinking..."):
+        try:
+            # Use real multi-agent collaboration
+            result = asyncio.run(real_multi_agent_collaboration(user_input, "production"))
+
+            if result['success']:
+                # Add collaboration response
+                response_content = result['response']
+                details = result['collaboration_details']
+
+                if details:
+                    response_content += f"\n\n---\n"
+                    response_content += f"**🔍 Collaboration Details:** "
+                    response_content += f"{', '.join(details.get('agents_used', []))} • "
+                    response_content += f"{details.get('processing_time', 0):.1f}s • "
+                    response_content += f"${details.get('total_cost', 0):.4f}"
+
+                st.session_state.messages.append({
+                    'role': 'assistant',
+                    'content': response_content
+                })
+            else:
+                st.session_state.messages.append({
+                    'role': 'assistant',
+                    'content': f"Error: {result.get('error', 'Unknown error')}"
+                })
+
+            # Save to thread
+            if current_thread:
+                current_thread['messages'] = st.session_state.messages
+
+        except Exception as e:
             st.session_state.messages.append({
-                'role': 'user',
-                'content': user_input
+                'role': 'assistant',
+                'content': f"System error: {str(e)}"
             })
 
-            # Show processing indicator
-            with st.spinner("🧠 Multi-agent collaboration in progress... Consulting multiple AI systems..."):
-                try:
-                    # Use real multi-agent collaboration
-                    result = asyncio.run(real_multi_agent_collaboration(user_input, mode.lower()))
-
-                    if result['success']:
-                        # Add collaboration response
-                        response_content = result['response']
-                        details = result['collaboration_details']
-
-                        if details:
-                            response_content += f"\n\n**🔍 Collaboration Details:**\n"
-                            response_content += f"• **Agents Used:** {', '.join(details.get('agents_used', []))}\n"
-                            response_content += f"• **Models:** {', '.join(details.get('models_used', []))}\n"
-                            response_content += f"• **Processing Time:** {details.get('processing_time', 0):.2f}s\n"
-                            response_content += f"• **Total Cost:** ${details.get('total_cost', 0):.4f}\n"
-                            response_content += f"• **Confidence:** {details.get('confidence', 0.8):.1%}"
-
-                        st.session_state.messages.append({
-                            'role': 'assistant',
-                            'content': response_content
-                        })
-                    else:
-                        st.session_state.messages.append({
-                            'role': 'assistant',
-                            'content': f"❌ Multi-agent collaboration error: {result.get('error', 'Unknown error')}"
-                        })
-
-                except Exception as e:
-                    st.session_state.messages.append({
-                        'role': 'assistant',
-                        'content': f"❌ System error: {str(e)}"
-                    })
-
-            st.rerun()
-
-        else:
-            st.warning("⚠️ Please enter a question or prompt.")
-
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #64748b; padding: 2rem; background: #f8fafc; border-radius: 12px; margin-top: 2rem;">
-    🚀 <strong>AI Hub</strong> • Multi-Agent AI Collaboration Platform<br>
-    <small style="color: #9ca3af; margin-top: 0.5rem; display: block;">
-        Combining multiple AI perspectives for comprehensive analysis
-    </small>
-</div>
-""", unsafe_allow_html=True)
+    st.rerun()
