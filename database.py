@@ -19,22 +19,39 @@ class Database:
     def connect(self):
         """Connect to PostgreSQL database"""
         try:
-            # Try Railway environment variable first
+            # Try DATABASE_URL first
             database_url = os.getenv('DATABASE_URL') or os.getenv('database_url')
 
             if database_url:
                 self.conn = psycopg2.connect(database_url)
             else:
-                # Fallback to individual parameters
-                self.conn = psycopg2.connect(
-                    host=os.getenv('DB_HOST', 'localhost'),
-                    database=os.getenv('DB_NAME', 'aihub'),
-                    user=os.getenv('DB_USER', 'postgres'),
-                    password=os.getenv('DB_PASSWORD', '')
-                )
+                # Try Railway's individual Postgres variables
+                pghost = os.getenv('PGHOST')
+                pgdatabase = os.getenv('PGDATABASE') or os.getenv('POSTGRES_DB')
+                pguser = os.getenv('PGUSER') or os.getenv('POSTGRES_USER')
+                pgpassword = os.getenv('PGPASSWORD') or os.getenv('POSTGRES_PASSWORD')
+                pgport = os.getenv('PGPORT', '5432')
+
+                if pghost and pgdatabase and pguser and pgpassword:
+                    self.conn = psycopg2.connect(
+                        host=pghost,
+                        database=pgdatabase,
+                        user=pguser,
+                        password=pgpassword,
+                        port=pgport
+                    )
+                else:
+                    # Final fallback
+                    self.conn = psycopg2.connect(
+                        host=os.getenv('DB_HOST', 'localhost'),
+                        database=os.getenv('DB_NAME', 'aihub'),
+                        user=os.getenv('DB_USER', 'postgres'),
+                        password=os.getenv('DB_PASSWORD', '')
+                    )
 
             self.conn.autocommit = True
             self.init_tables()
+            print("Database connected successfully!")
         except Exception as e:
             print(f"Database connection failed: {e}")
             self.conn = None
