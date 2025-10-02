@@ -106,10 +106,11 @@ api_status = {
 production_engine_available = any(api_status.values())
 
 # Initialize database
-if 'db' not in st.session_state and DATABASE_AVAILABLE:
-    st.session_state.db = Database()
-else:
-    st.session_state.db = None
+if 'db' not in st.session_state:
+    if DATABASE_AVAILABLE:
+        st.session_state.db = Database()
+    else:
+        st.session_state.db = None
 
 # Initialize session state
 if 'authenticated' not in st.session_state:
