@@ -1490,13 +1490,21 @@ if st.session_state.show_settings:
 
         st.markdown("---")
 
+    st.stop()  # Don't render chat when Settings is open
+
 # Main Chat Interface
 # Display messages
-for msg in st.session_state.messages:
+for idx, msg in enumerate(st.session_state.messages):
     if msg['role'] == 'user':
         st.markdown(f'<div class="message user-message">{msg["content"]}</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="message ai-message">{msg["content"]}</div>', unsafe_allow_html=True)
+        # AI message with copy button
+        col1, col2 = st.columns([0.95, 0.05])
+        with col1:
+            st.markdown(f'<div class="message ai-message">{msg["content"]}</div>', unsafe_allow_html=True)
+        with col2:
+            if st.button("📋", key=f"copy_{idx}", help="Copy to clipboard"):
+                st.code(msg["content"], language=None)
 
 # Chat input
 st.markdown("")
